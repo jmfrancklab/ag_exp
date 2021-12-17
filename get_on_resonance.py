@@ -51,36 +51,33 @@ def verifyParams():
 #}}}
 
 output_name = '150uM_TEMPOL'
-node_name = 'echo1'
-adcOffset = 30
+node_name = 'echo'
+adcOffset = 26
 
-#user_sets_Freq = True
-user_sets_Freq = False
-
-#user_sets_Field = True
-user_sets_Field = False
+user_sets_Freq = True
+user_sets_Field = True
 
 #{{{ set field here
 if user_sets_Field:
     # You must enter field set on XEPR here
-    true_B0 = 3507.52
+    true_B0 = 3506.0
     print("My field in G should be %f"%true_B0)
 #}}}
 #{{{let computer set field
 if not user_sets_Field:
-    desired_B0 = 3505.5
+    desired_B0 = 3506.50
     with xepr() as x:
         true_B0 = x.set_field(desired_B0)
     print("My field in G is %f"%true_B0)
 #}}}
 #{{{ set frequency here
 if user_sets_Freq:
-    carrierFreq_MHz = 14.903655
+    carrierFreq_MHz = 14.897196
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
 #{{{ let computer set frequency
 if not user_sets_Freq:
-    gamma_eff = (14.903655/3507.52)
+    gamma_eff = (14.897706/3506.5)
     carrierFreq_MHz = gamma_eff*true_B0
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
@@ -89,10 +86,10 @@ amplitude = 1.0
 nScans = 1
 nEchoes = 1
 phase_cycling = True
-coherence_pathway = [('ph1',1)]
+coherence_pathway = [('ph1',1),('ph2',-2)]
 date = datetime.now().strftime('%y%m%d')
 if phase_cycling:
-    nPhaseSteps = 4
+    nPhaseSteps = 8
 if not phase_cycling:
     nPhaseSteps = 1
 #{{{ note on timing
@@ -101,14 +98,10 @@ if not phase_cycling:
 #}}}
 p90 = 4.464
 deadtime = 10
-repetition = 12e6
+repetition = 10e6
 
-
-
-SW_kHz = 24
-acq_ms = 85.
-#SW_kHz = 3.9
-#acq_ms = 1024.
+SW_kHz = 10
+acq_ms = 200.
 nPoints = int(acq_ms*SW_kHz+0.5)
 # rounding may need to be power of 2
 # have to try this out
@@ -117,9 +110,6 @@ deblank = 1.0
 #tau = deadtime + acq_time*1e3*(1./8.) + tau_adjust
 tau = 3500
 pad = 0
-total_pts = nPoints*nPhaseSteps
-assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
-
 #{{{ setting acq_params dictionary
 acq_params = {}
 acq_params['adcOffset'] = adcOffset
@@ -172,7 +162,7 @@ for x in range(nScans):
             ('pulse_TTL',p90,'ph1',r_[0,1,2,3]),
             ('delay',tau),
             ('delay_TTL',deblank),
-            ('pulse_TTL',2.0*p90,0),
+            ('pulse_TTL',2.0*p90,'ph2',r_[0,2]),
             ('delay',deadtime),
             ('acquire',acq_ms),
             ('delay',repetition),
@@ -256,7 +246,8 @@ if not phase_cycling:
     fl.plot(data.imag)
     fl.plot(abs(data),color='k',alpha=0.5)
 if phase_cycling:
-    data.chunk('t',['ph1','t2'],[4,-1])
+    data.chunk('t',['ph2','ph1','t2'],[2,4,-1])
+    data.setaxis('ph2',r_[0.,2.]/4)
     data.setaxis('ph1',r_[0.,1.,2.,3.]/4)
     if nScans > 1:
         data.setaxis('nScans',r_[0:nScans])
@@ -267,10 +258,10 @@ if phase_cycling:
     fl.next('image - ft')
     fl.image(data)
     fl.next('image - ft, coherence')
-    data.ft(['ph1'])
+    data.ft(['ph1','ph2'])
     fl.image(data)
     fl.next('data plot')
-    data_slice = data['ph1',1]
+    data_slice = data['ph1',1]['ph2',-2]
     fl.plot(data_slice, alpha=0.5)
     fl.plot(data_slice.imag, alpha=0.5)
     fl.plot(abs(data_slice), color='k', alpha=0.5)

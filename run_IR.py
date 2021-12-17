@@ -37,20 +37,20 @@ def verifyParams():
 #}}}
 date = datetime.now().strftime('%y%m%d')
 clock_correction = 0
-output_name = 'TEMPOL_289uM_heat_exch_0C'
-node_name = 'FIR_noPower_end'
-adcOffset = 28
-carrierFreq_MHz = 14.549013
+output_name = 'TEMPOL_150uM_IR_1'
+node_name = 'FIR_hipower'
+adcOffset = 30
+carrierFreq_MHz = 14.895097
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
 nEchoes = 1
 # NOTE: Number of segments is nEchoes * nPhaseSteps
-p90 = 1.781
+p90 = 4.464
 deadtime = 10.0
-repetition = 4e6
-SW_kHz = 10
-acq_ms = 200.
+repetition = 12e6
+SW_kHz = 3.9
+acq_ms = 1024.
 nPoints = int(acq_ms*SW_kHz+0.5)
 # rounding may need to be power of 2
 # have to try this out
@@ -59,9 +59,7 @@ deblank = 1.0
 #tau = deadtime + acq_time*1e3*(1./8.) + tau_adjust
 tau = 3500
 pad = 0
-total_pts = nPoints*nPhaseSteps
-assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
-print("ACQUISITION TIME:",acq_time,"ms")
+print("ACQUISITION TIME:",acq_ms,"ms")
 print("TAU DELAY:",tau,"us")
 phase_cycling = True
 ph1 = r_[0,2]
@@ -69,7 +67,10 @@ ph2 = r_[0,2]
 if phase_cycling:
     nPhaseSteps = 4
 if not phase_cycling:
-    nPhaseSteps = 1 
+    nPhaseSteps = 1
+total_pts = nPoints*nPhaseSteps
+assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
+    
 #{{{ setting acq_params dictionary
 acq_params = {}
 acq_params['adcOffset'] = adcOffset
@@ -103,7 +104,7 @@ data_length = 2*nPoints*nEchoes*nPhaseSteps
 #vd_list = np.linspace(5e1,15e6,16)#5) 
 #vd_list = np.linspace(5e1,10e6,16)
 #vd_list = np.linspace(5e1,4e6,16)
-vd_list = np.linspace(5e1,6e6,16)
+vd_list = np.linspace(5e1,5e6,10)
 #vd_list = np.linspace(5e1,3e6,15)
 #vd_list = np.linspace(5e1,8e6,16)
 
@@ -163,7 +164,7 @@ for index,val in enumerate(vd_list):
         print("COMPLEX DATA ARRAY LENGTH:",np.shape(data)[0])
         print("RAW DATA ARRAY LENGTH:",np.shape(raw_data)[0])
         dataPoints = float(np.shape(data)[0])
-        time_axis = np.linspace(0.0,nEchoes*nPhaseSteps*acq_time*1e-3,dataPoints)
+        time_axis = r_[0:dataPoints]/(SW_kHz*1e3)
         data = nddata(np.array(data),'t')
         data.setaxis('t',time_axis).set_units('t','s')
         data.name('signal')
