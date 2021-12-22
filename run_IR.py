@@ -37,10 +37,10 @@ def verifyParams():
 #}}}
 date = datetime.now().strftime('%y%m%d')
 clock_correction = 0
-output_name = 'TEMPOL_150uM_IR_1'
+output_name = 'TEMPOL_150mM_IR'
 node_name = 'FIR_hipower'
-adcOffset = 30
-carrierFreq_MHz = 14.895097
+adcOffset = 26
+carrierFreq_MHz = 14.892857
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
@@ -48,7 +48,7 @@ nEchoes = 1
 # NOTE: Number of segments is nEchoes * nPhaseSteps
 p90 = 4.464
 deadtime = 10.0
-repetition = 12e6
+repetition = 3e6
 SW_kHz = 3.9
 acq_ms = 1024.
 nPoints = int(acq_ms*SW_kHz+0.5)
@@ -104,7 +104,7 @@ data_length = 2*nPoints*nEchoes*nPhaseSteps
 #vd_list = np.linspace(5e1,15e6,16)#5) 
 #vd_list = np.linspace(5e1,10e6,16)
 #vd_list = np.linspace(5e1,4e6,16)
-vd_list = np.linspace(5e1,5e6,10)
+vd_list = np.linspace(5e1,0.5e6,10)
 #vd_list = np.linspace(5e1,3e6,15)
 #vd_list = np.linspace(5e1,8e6,16)
 

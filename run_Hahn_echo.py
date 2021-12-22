@@ -50,37 +50,37 @@ def verifyParams():
     return
 #}}}
 
-output_name = '150uM_TEMPOL'
+output_name = '150mM_TEMPOL'
 node_name = 'echo1'
-adcOffset = 30
+adcOffset = 26
 
-#user_sets_Freq = True
-user_sets_Freq = False
+user_sets_Freq = True
+#user_sets_Freq = False
 
-#user_sets_Field = True
-user_sets_Field = False
+user_sets_Field = True
+#user_sets_Field = False
 
 #{{{ set field here
 if user_sets_Field:
     # You must enter field set on XEPR here
-    true_B0 = 3507.52
+    true_B0 = 3506.0
     print("My field in G should be %f"%true_B0)
 #}}}
 #{{{let computer set field
 if not user_sets_Field:
-    desired_B0 = 3505.5
+    desired_B0 = 3505.0
     with xepr() as x:
         true_B0 = x.set_field(desired_B0)
     print("My field in G is %f"%true_B0)
 #}}}
 #{{{ set frequency here
 if user_sets_Freq:
-    carrierFreq_MHz = 14.903655
+    carrierFreq_MHz = 14.897104
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
 #{{{ let computer set frequency
 if not user_sets_Freq:
-    gamma_eff = (14.903655/3507.52)
+    gamma_eff = (14.903817/3507.58)
     carrierFreq_MHz = gamma_eff*true_B0
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
@@ -101,7 +101,7 @@ if not phase_cycling:
 #}}}
 p90 = 4.464
 deadtime = 10
-repetition = 12e6
+repetition = 3e6
 
 
 

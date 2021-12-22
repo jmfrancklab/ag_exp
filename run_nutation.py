@@ -61,9 +61,9 @@ if set_field:
     API_sender(B0)
 #}}}
 date = datetime.now().strftime('%y%m%d')
-output_name = '150uM_TEMPOL_1'
-adcOffset = 30
-carrierFreq_MHz = 14.903655
+output_name = '150mM_TEMPOL_1'
+adcOffset = 26
+carrierFreq_MHz = 14.903817
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
@@ -75,7 +75,7 @@ if not phase_cycling:
     nPhaseSteps = 1
 # NOTE: Number of segments is nEchoes * nPhaseSteps
 deadtime = 10.0
-repetition = 12e6
+repetition = 3e6
 SW_kHz = 24.0
 nPoints = 1024
 acq_time = nPoints/SW_kHz # ms
