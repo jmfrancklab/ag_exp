@@ -15,9 +15,9 @@ fl = figlist_var()
 save_file=True
 # {{{ experimental parameters
 # {{{ these need to change for each sample
-output_name = '150mM_TEMPOL_DNP_1'
-adcOffset = 29
-carrierFreq_MHz = 14.892989
+output_name = '150mM_TEMPOL_DNP_v2'
+adcOffset = 26
+carrierFreq_MHz = 14.893189
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
@@ -133,14 +133,15 @@ def run_scans(nScans, power_idx, DNP_data=None):
         print("RAW DATA ARRAY LENGTH:",shape(raw_data)[0])
         dataPoints = float(shape(data_array)[0])
         if DNP_data is None:
-            time_axis = r_[0:dataPoints]/(SW_kHz*1e3) 
-            DNP_data = ndshape([len(powers)+1,nScans,len(time_axis)],['indirect','nScans','t']).alloc(dtype=complex128)
-            times_dtype = dtype([('start_times',double),('stop_times',double)])
-            mytimes = zeros(len(powers)+1,dtype=times_dtype)
-            DNP_data.setaxis('indirect',mytimes)
-            DNP_data.setaxis('t',time_axis).set_units('t','s')
-            DNP_data.setaxis('nScans',r_[0:nScans])
-            DNP_data.name('enhancement_curve')
+            if x == 0:
+                time_axis = r_[0:dataPoints]/(SW_kHz*1e3) 
+                data_array = ndshape([len(powers)+1,nScans,len(time_axis)],['indirect','nScans','t']).alloc(dtype=complex128)
+                times_dtype = dtype([('start_times',double),('stop_times',double)])
+                mytimes = zeros(len(powers)+1,dtype=times_dtype)
+                data_array.setaxis('indirect',mytimes)
+                data_array.setaxis('t',time_axis).set_units('t','s')
+                data_array.setaxis('nScans',r_[0:nScans])
+        data_array.setaxis('t',time_axis)
         DNP_data['indirect',power_idx]['nScans',x] = data_array
         SpinCore_pp.stopBoard()
         run_scans_time_list.append(time.time())
@@ -320,9 +321,10 @@ with power_control() as p:
         time.sleep(5)
         power_settings[j] = p.get_power_setting()
         time_axis_coords[j+1]['start_times'] = time.time()
-        run_scans(nScans,j+1,DNP_data)
+        DNP_data = run_scans(nScans,j+1,DNP_data)
         time_axis_coords[j+1]['stop_times'] = time.time()
     this_log=p.stop_log()
+DNP_data.name('enhancement')    
 DNP_data.set_prop('stop_time', time.time())
 acq_params = {j:eval(j) for j in dir() if j in ['adcOffset', 'carrierFreq_MHz', 'amplitude',
     'nScans', 'nEchoes', 'p90_us', 'deadtime_us', 'repetition_us', 'SW_kHz',

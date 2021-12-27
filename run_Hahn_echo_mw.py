@@ -26,10 +26,10 @@ input("Look ok?")
 powers = 1e-3*10**(dB_settings/10.)
 
 date = datetime.now().strftime('%y%m%d')
-output_name = 'TEMPOL_289uM_heat_exch_0C'
+output_name = '150mM_TEMPOL_OG_Ep'
 node_name = 'enhancement'
-adcOffset = 28
-carrierFreq_MHz = 14.549013
+adcOffset = 26
+carrierFreq_MHz = 14.893189
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
@@ -45,12 +45,12 @@ if not phase_cycling:
 # as this is generally what the SpinCore takes
 # note that acq_time is always milliseconds
 #}}}
-p90 = 1.781
+p90 = 4.464
 deadtime = 10.0
-repetition = 10e6
+repetition = 1e6
 
-SW_kHz = 10
-acq_ms = 200.
+SW_kHz = 5
+acq_ms = 500.
 nPoints = int(acq_ms*SW_kHz+0.5)
 tau_adjust = 0
 deblank = 1.0
@@ -79,7 +79,7 @@ if phase_cycling:
     acq_params['nPhaseSteps'] = nPhaseSteps
 #}}}
 # }}}
-print("ACQUISITION TIME:",acq_time,"ms")
+print("ACQUISITION TIME:",acq_ms,"ms")
 print("TAU DELAY:",tau,"us")
 #print "PAD DELAY:",pad,"us"
 data_length = 2*nPoints*nEchoes*nPhaseSteps
@@ -143,7 +143,7 @@ for x in range(nScans):
     print("RAW DATA ARRAY LENGTH:",shape(raw_data)[0])
     dataPoints = float(shape(data_array)[0])
     if x == 0:
-        time_axis = linspace(0.0,nEchoes*nPhaseSteps*acq_time*1e-3,dataPoints)
+        time_axis =r_[0:dataPoints]/(SW_kHz*1e3) 
         DNP_data = ndshape([len(powers)+1,nScans,len(time_axis)],['power','nScans','t']).alloc(dtype=complex128)
         DNP_data.setaxis('power',r_[0,powers]).set_units('W')
         DNP_data.setaxis('t',time_axis).set_units('t','s')
@@ -157,7 +157,7 @@ with Bridge12() as b:
     b.set_wg(True)
     b.set_rf(True)
     b.set_amp(True)
-    this_return = b.lock_on_dip(ini_range=(9.579e9,9.595e9))
+    this_return = b.lock_on_dip(ini_range=(9.81e9,9.83e9))
     dip_f = this_return[2]
     print("Frequency",dip_f)
     b.set_freq(dip_f)
@@ -253,7 +253,7 @@ with Bridge12() as b:
             print("COMPLEX DATA ARRAY LENGTH:",shape(data_array)[0])
             print("RAW DATA ARRAY LENGTH:",shape(raw_data)[0])
             dataPoints = float(shape(data_array)[0])
-            time_axis = linspace(0.0,nEchoes*nPhaseSteps*acq_time*1e-3,dataPoints)
+            time_axis =r_[0:dataPoints]/(SW_kHz*1e3) 
             data_array = nddata(array(data_array),'t')
             data_array.setaxis('t',time_axis).set_units('t','s')
             data_array.name('signal')
