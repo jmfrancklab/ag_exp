@@ -52,7 +52,7 @@ field_axis = r_[3503:3509:1.0]
 print("Here is my field axis:",field_axis)
 
 # Parameters for Bridge12
-powers = r_[3.5]
+powers = r_[4.0]
 min_dBm_step = 0.5
 for x in range(len(powers)):
     print(powers)
@@ -63,10 +63,10 @@ input("Look ok?")
 powers = 1e-3*10**(dB_settings/10.)
 #}}}
 
-output_name = '150uM_TEMPOL_field_dep'
+output_name = '150mM_TEMPOL_field_dep'
 node_name = 'field_sweep_1'
-adcOffset = 30
-gamma_eff = (14.903970/3507.58)
+adcOffset = 26
+gamma_eff = (14.904163/3507.62)
 #{{{ acq params
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
@@ -86,7 +86,7 @@ if not phase_cycling:
 #}}}
 p90 = 4.464
 deadtime = 10.0
-repetition = 12e6
+repetition = 3e6
 
 SW_kHz = 3.9
 acq_ms = 1024.
