@@ -48,7 +48,7 @@ mw_freqs = []
 #stop_field = 33510
 #field_axis = start_field + (stop_field-start_field)*uneven
 
-field_axis = r_[3503:3509:1.0]
+field_axis = r_[3501:3508:1.0]
 print("Here is my field axis:",field_axis)
 
 # Parameters for Bridge12
@@ -63,10 +63,10 @@ input("Look ok?")
 powers = 1e-3*10**(dB_settings/10.)
 #}}}
 
-output_name = '150mM_TEMPOL_field_dep'
+output_name = '150mM_TEMPOL_field_dep_1'
 node_name = 'field_sweep_1'
-adcOffset = 26
-gamma_eff = (14.904163/3507.62)
+adcOffset = 28
+gamma_eff = (14.903776/3507.53)
 #{{{ acq params
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
@@ -86,7 +86,7 @@ if not phase_cycling:
 #}}}
 p90 = 4.464
 deadtime = 10.0
-repetition = 3e6
+repetition = 0.5e6
 
 SW_kHz = 3.9
 acq_ms = 1024.
