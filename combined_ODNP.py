@@ -13,20 +13,21 @@ import h5py
 # {{{ Combined ODNP
 # {{{ experimental parameters
 # {{{ these need to change for each sample
-output_name = '150mM_TEMPOL_DNP_1'
+output_name = '3uM_TEMPOL_DNP_2'
 IR_postproc = 'spincore_IR_v1'
 Ep_postproc = 'ODNP_v3'
-adcOffset = 28
-carrierFreq_MHz = 14.893451
-nScans = 1
+adcOffset = 25
+carrierFreq_MHz = 14.905878
+nScans = 2
 nEchoes = 1
 # all times in microseconds
 # note that acq_time_ms is always milliseconds
 p90_us = 4.464
-repetition_us = 0.5e6
-FIR_rd = 0.1e6
-vd_list = r_[2.1e3,1.12e4,2.23e4,3.3e4,4.4e4,5.6e4,6.7e4,7.8e4,8.9e4,1e5]
-max_power = 4 #W
+repetition_us = 12e6
+FIR_rd = 7e6
+#vd_list = r_[2.1e3,1.12e4,2.23e4,3.3e4,4.4e4,5.6e4,6.7e4,7.8e4,8.9e4,1e5]
+vd_list = r_[5e1,3.7e5,7.3e5,1.1e6,1.5e6,1.8e6,2.2e6,2.6e6,2.9e6,3.3e6]
+max_power = 3 #W
 power_steps = 14
 threedown = True
 # }}}
@@ -227,6 +228,7 @@ DNP_ini_time = time.time()
 with power_control() as p:
     Ep_start = p.dip_lock(9.81,9.83)
     p.start_log()
+    p.mw_off()
     DNP_data = run_scans(nScans,0)
     DNP_thermal_done = time.time()
     time_axis_coords = DNP_data.getaxis('indirect')
@@ -283,7 +285,7 @@ with power_control() as p:
     retval_thermal = p.dip_lock(9.81,9.83)
     p.mw_off()
     vd_data = run_scans_IR(vd_list,'FIR_noPower',
-            nScans=1, power_idx=0)
+            nScans=nScans, power_idx=0)
     vd_data.set_prop('stop_time',time.time())
     time_axis_coords_IR = vd_data.getaxis('indirect')
     time_axis_coords_IR[0]=ini_time

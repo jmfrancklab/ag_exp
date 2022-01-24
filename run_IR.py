@@ -37,10 +37,10 @@ def verifyParams():
 #}}}
 date = datetime.now().strftime('%y%m%d')
 clock_correction = 0
-output_name = 'TEMPOL_150mM_IR'
+output_name = 'TEMPOL_150uM_IR'
 node_name = 'FIR_hipower'
 adcOffset = 26
-carrierFreq_MHz = 14.892857
+carrierFreq_MHz = 14.893131
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
@@ -48,7 +48,7 @@ nEchoes = 1
 # NOTE: Number of segments is nEchoes * nPhaseSteps
 p90 = 4.464
 deadtime = 10.0
-repetition = 3e6
+repetition = 7e6
 SW_kHz = 3.9
 acq_ms = 1024.
 nPoints = int(acq_ms*SW_kHz+0.5)
@@ -57,7 +57,7 @@ nPoints = int(acq_ms*SW_kHz+0.5)
 tau_adjust = 0
 deblank = 1.0
 #tau = deadtime + acq_time*1e3*(1./8.) + tau_adjust
-tau = 3500
+tau = 10000
 pad = 0
 print("ACQUISITION TIME:",acq_ms,"ms")
 print("TAU DELAY:",tau,"us")
@@ -104,7 +104,7 @@ data_length = 2*nPoints*nEchoes*nPhaseSteps
 #vd_list = np.linspace(5e1,15e6,16)#5) 
 #vd_list = np.linspace(5e1,10e6,16)
 #vd_list = np.linspace(5e1,4e6,16)
-vd_list = np.linspace(5e1,0.5e6,10)
+vd_list = np.linspace(5e1,3.3e6,10)
 #vd_list = np.linspace(5e1,3e6,15)
 #vd_list = np.linspace(5e1,8e6,16)
 
