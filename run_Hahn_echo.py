@@ -63,7 +63,7 @@ user_sets_Field = True
 #{{{ set field here
 if user_sets_Field:
     # You must enter field set on XEPR here
-    true_B0 = 3507.53
+    true_B0 = 3505.0
     print("My field in G should be %f"%true_B0)
 #}}}
 #{{{let computer set field
@@ -75,12 +75,12 @@ if not user_sets_Field:
 #}}}
 #{{{ set frequency here
 if user_sets_Freq:
-    carrierFreq_MHz = 14.903800
+    carrierFreq_MHz = 14.893200
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
 #{{{ let computer set frequency
 if not user_sets_Freq:
-    gamma_eff = (14.903888/3507.55)
+    gamma_eff = (14.903800/3507.53)
     carrierFreq_MHz = gamma_eff*true_B0
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
