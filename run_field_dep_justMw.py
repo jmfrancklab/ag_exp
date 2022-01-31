@@ -7,8 +7,8 @@ estimated field for the electron resonance at the
 highest power one plans to run the combined DNP
 at. 
 """
-from numpy import *
-from pyspecdata import *
+import numpy as np
+import pyspecdata as psp
 import os
 import sys
 import SpinCore_pp
@@ -17,8 +17,9 @@ from Instruments import power_control,Bridge12,prologix_connection,gigatronics
 from datetime import datetime
 from Instruments.XEPR_eth import xepr
 from pylab import *
+from SpinCore_pp.ppg import run_spin_echo
 
-fl = figlist_var()
+fl = psp.figlist_var()
 #logger = init_logging(level='debug')
 #{{{ Verify arguments compatible with board
 def verifyParams():
@@ -51,31 +52,31 @@ def verifyParams():
 
 mw_freqs = []
 
-field_axis = r_[3504:3509:.5]
+field_axis = psp.r_[3504:3509:.5]
 print("Here is my field axis:",field_axis)
 
 # Parameters for Bridge12
-powers = r_[3.98]
+powers = psp.r_[3.98]
 min_dBm_step = 0.5
 for x in range(len(powers)):
     print(powers)
-    dB_settings = round(10*(log10(powers[x])+3.0)/min_dBm_step)*min_dBm_step # round to nearest min_dBm_step
+    dB_settings = round(10*(np.log10(powers[x])+3.0)/min_dBm_step)*min_dBm_step # round to nearest min_dBm_step
 print("dB_settings",dB_settings)
 print("correspond to powers in Watts",10**(dB_settings/10.-3))
 input("Look ok?")
 powers = 1e-3*10**(dB_settings/10.)
 #}}}
 
-output_name = '150mM_TEMPOL_field_dep'
-adcOffset = 28
-gamma_eff = (14.903800/3507.53)
+output_name = '150mM_TEMPOL_field_dep_final'
+adcOffset = 24
+gamma_eff = (14.904151/3507.52)
 #{{{ acq params
-tx_phases = r_[0.0,90.0,180.0,270.0]
+tx_phases = psp.r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
 nEchoes = 1
 coherence_pathway = [('ph1',1)]
-date = '220124'#datetime.now().strftime('%y%m%d')
+date = datetime.now().strftime('%y%m%d')
 nPhaseSteps = 4
 #{{{ note on timing
 # putting all times in microseconds
@@ -97,70 +98,6 @@ pad_us = 0
 #}}}
 total_pts = nPoints*nPhaseSteps
 assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
-#{{{ppg
-def run_scans(B0_index, nScans=1, sweep_data = None):
-    print("About to run run_scans for", B0_index)
-    ph1_cyc = r_[0,1,2,3]
-    ph2_cyc = r_[0]
-    nPhaseSteps = len(ph1_cyc)*len(ph2_cyc)
-    total_pts = nPoints*nPhaseSteps
-    data_length = 2*nPoints*nEchoes*nPhaseSteps
-    for x in range(nScans):
-            logger.debug("\n*** *** *** *** ***\n")
-            logger.debug("\n*** *** ***\n")
-            logger.debug("CONFIGURING TRANSMITTER...")
-            SpinCore_pp.configureTX(adcOffset, carrierFreq_MHz, tx_phases, amplitude, nPoints)
-            logger.debug("\nTRANSMITTER CONFIGURED.")
-            logger.debug("***")
-            logger.debug("CONFIGURING RECEIVER...")
-            acq_time = SpinCore_pp.configureRX(SW_kHz, nPoints, nScans, nEchoes, nPhaseSteps) #ms
-            logger.debug("\nRECEIVER CONFIGURED.")
-            logger.debug("***")
-            logger.debug("\nINITIALIZING PROG BOARD...\n")
-            SpinCore_pp.init_ppg();
-            logger.debug("\nLOADING PULSE PROG...\n")
-            SpinCore_pp.load([
-                ('marker','start',1),
-                ('phase_reset',1),
-                ('delay_TTL',deblank_us),
-                ('pulse_TTL',p90,'ph1',ph1_cyc),
-                ('delay',tau_us),
-                ('delay_TTL',deblank_us),
-                ('pulse_TTL',2.0*p90,'ph2',ph2_cyc),
-                ('delay',deadtime),
-                ('acquire',acq_time),
-                ('delay',repetition),
-                ('jumpto','start')
-                ])
-            logger.debug("\nSTOPPING PROG BOARD...\n")
-            SpinCore_pp.stop_ppg();
-            logger.debug("\nRUNNING BOARD...\n")
-            SpinCore_pp.runBoard();
-            raw_data = SpinCore_pp.getData(data_length, nPoints, nEchoes, nPhaseSteps, output_name)
-            raw_data.astype(float)
-            data_array = []
-            data_array[::] = complex128(raw_data[0::2]+1j*raw_data[1::2])
-            logger.debug("COMPLEX DATA ARRAY LENGTH:",shape(data_array)[0])
-            logger.debug("RAW DATA ARRAY LENGTH:",shape(raw_data)[0])
-            dataPoints = float(np.shape(data_array)[0])
-            if x ==0 and B0_index == 0:
-                time_axis = r_[0:dataPoints]/(SW_kHz*1e3)
-                sweep_data = ndshape([len(time_axis),nScans,len(field_axis),1],['t','nScans','Field','power']).alloc(dtype=np.complex128)
-                sweep_data.setaxis('t',time_axis).set_units('t','s')
-                sweep_data.setaxis('nScans',r_[0:nScans])
-                sweep_data.setaxis('Field',field_axis)
-                sweep_data.setaxis('power',r_[powers])
-            if sweep_data == None:
-                time_axis = r_[0:dataPoints]/(SW_kHz*1e3)
-                data_array = nddata(array(data_array),'t')
-                data_array.setaxis('t',time_axis)
-                sweep_data.name('Field_sweep')
-            print(sweep_data)    
-            sweep_data['nScans',x]['Field',B0_index]['power',0] = data_array
-            logger.debug(strm("FINISHED B0 INDEX %d..."%B0_index))
-            logger.debug("\n*** *** ***\n")
-            return sweep_data
-#}}}        
 with power_control() as p:
     dip_f=p.dip_lock(9.81,9.83)
     mw_freqs.append(dip_f)
@@ -171,25 +108,40 @@ with power_control() as p:
         time.sleep(0.5)
         if p.get_power_setting()>= this_dB: break
     if p.get_power_setting() < this_dB: raise ValueError("After 10 tries, the power has still not settled")    
-    meter_powers = zeros_like(dB_settings)
+    meter_powers = np.zeros_like(dB_settings)
     with xepr() as x_server:
         first_B0 = x_server.set_field(field_axis[0])
         time.sleep(3.0)
         carrierFreq_MHz = gamma_eff*first_B0
-        sweep_data = run_scans(B0_index = 0,sweep_data = None)
+        sweep_data = run_spin_echo(nScans = nScans, indirect_idx = 0, 
+                indirect_len = len(field_axis), adcOffset = adcOffset,
+                carrierFreq_MHz = carrierFreq_MHz, nPoints = nPoints,
+                nEchoes = nEchoes, p90_us = p90, repetition = repetition,
+                tau_us = tau_us, SW_kHz=SW_kHz, output_name = output_name, 
+                indirect_dim1 = 'Field', indirect_dim2 = 'carrierFreq',
+                ret_data = None)
+        myfreqs_fields = sweep_data.getaxis('indirect')
+        myfreqs_fields[0]['Field'] = first_B0
+        myfreqs_fields[0]['carrierFreq'] = carrierFreq_MHz
         for B0_index,desired_B0 in enumerate(field_axis[1:]):
                 true_B0 = x_server.set_field(desired_B0)
                 print("My field in G is %f"%true_B0)
                 time.sleep(3.0)
-                carrierFreq_MHz = gamma_eff*true_B0
-                print("My frequency in MHz is",carrierFreq_MHz)
-                sweep_data = run_scans(B0_index+1,sweep_data = sweep_data)
+                new_carrierFreq_MHz = gamma_eff*true_B0
+                myfreqs_fields[B0_index]['Field'] = true_B0
+                myfreqs_fields[B0_index]['carrierFreq'] = new_carrierFreq_MHz
+                print("My frequency in MHz is",new_carrierFreq_MHz)
+                sweep_data = run_spin_echo(nScans = nScans, indirect_idx = B0_index+1,
+                        indirect_len = len(field_axis), adcOffset = adcOffset,
+                        carrierFreq_MHz = new_carrierFreq_MHz, nPoints = nPoints,
+                        nEchoes = nEchoes, p90_us = p90, repetition = repetition,
+                        tau_us = tau_us, SW_kHz=SW_kHz, output_name = output_name, 
+                        indirect_dim1 = 'Field', indirect_dim2 = 'carrierFreq',
+                        ret_data = sweep_data)
         SpinCore_pp.stopBoard()
-        acq_params = {j:eval(j) for j in dir() if j in ['tx_phases', 'carrierFreq_MHz','amplitude',
-            'nScans','nEchoes','p90','deadtime','repetition','SW_kHz','mw_freqs','nPoints','tau_adjust_us',
-            'deblank_us','tau_us','nPhaseSteps']}
-        sweep_data.set_prop('acq_params',acq_params)
-
+acq_params = {j:eval(j) for j in dir() if j in ['tx_phases', 'carrierFreq_MHz','amplitude','nScans','nEchoes','p90','deadtime','repetition','SW_kHz','mw_freqs','nPoints','tau_adjust_us','deblank_us','tau_us','nPhaseSteps']}
+sweep_data.set_prop('acq_params',acq_params)
+sweep_data.name('Field_sweep')
 #}}}        
 myfilename = date+'_'+output_name+'.h5'
 save_file = True
