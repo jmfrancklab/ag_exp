@@ -20,7 +20,6 @@ from pylab import *
 from SpinCore_pp.ppg import run_spin_echo
 
 fl = psp.figlist_var()
-#logger = init_logging(level='debug')
 #{{{ Verify arguments compatible with board
 def verifyParams():
     if (nPoints > 16*1024 or nPoints < 1):
@@ -52,14 +51,13 @@ def verifyParams():
 
 mw_freqs = []
 
-field_axis = psp.r_[3504:3509:.5]
+field_axis = psp.r_[3503:3508:.5]
 print("Here is my field axis:",field_axis)
 
 # Parameters for Bridge12
 powers = psp.r_[3.98]
 min_dBm_step = 0.5
 for x in range(len(powers)):
-    print(powers)
     dB_settings = round(10*(np.log10(powers[x])+3.0)/min_dBm_step)*min_dBm_step # round to nearest min_dBm_step
 print("dB_settings",dB_settings)
 print("correspond to powers in Watts",10**(dB_settings/10.-3))
@@ -67,16 +65,16 @@ input("Look ok?")
 powers = 1e-3*10**(dB_settings/10.)
 #}}}
 
-output_name = '150mM_TEMPOL_field_dep_final'
-adcOffset = 24
-gamma_eff = (14.904151/3507.52)
+output_name = '150mM_TEMPOL_field_dep'
+adcOffset = 25
+gamma_eff = (14.904040/3507.54)
 #{{{ acq params
 tx_phases = psp.r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 1
 nEchoes = 1
 coherence_pathway = [('ph1',1)]
-date = datetime.now().strftime('%y%m%d')
+date = '220202'#datetime.now().strftime('%y%m%d')
 nPhaseSteps = 4
 #{{{ note on timing
 # putting all times in microseconds
@@ -101,7 +99,6 @@ assert total_pts < 2**14, "You are trying to acquire %d points (too many points)
 with power_control() as p:
     dip_f=p.dip_lock(9.81,9.83)
     mw_freqs.append(dip_f)
-    print("\n*** *** *** *** ***\n")
     p.set_power(dB_settings)
     this_dB = dB_settings
     for k in range(10):
