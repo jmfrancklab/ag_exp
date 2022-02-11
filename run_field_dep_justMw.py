@@ -19,6 +19,7 @@ from datetime import datetime
 from Instruments.XEPR_eth import xepr
 from pylab import *
 from SpinCore_pp.ppg import run_spin_echo
+import logging
 fl = psp.figlist_var()
 mw_freqs = []
 #{{{These change for each sample
@@ -28,12 +29,12 @@ mw_freqs = []
 # note that acq_time is always milliseconds
 #}}}
 field_axis = psp.r_[3503:3508:.5]
-logger.info(strm("Here is my field axis:",field_axis))
+logging.info("Here is my field axis:",field_axis)
 powers = r_[3.98]
 min_dBm_step = 0.5
 output_name = '150mM_TEMPOL_field_dep'
-adcOffset = 25
-gamma_eff = (14.904040/3507.54)
+adcOffset = 24
+gamma_eff = (14.903907/3507.49)
 nScans = 1
 p90 = 4.464
 repetition = 0.5e6
@@ -48,8 +49,8 @@ uw_dip_width_GHz = 0.02
 #{{{ Parameters for Bridge12
 for x in range(len(powers)):
     dB_settings = round(10*(np.log10(powers[x])+3.0)/min_dBm_step)*min_dBm_step # round to nearest min_dBm_step
-logger.info(strm("dB_settings",dB_settings))
-logger.info(strm("correspond to powers in Watts",10**(dB_settings/10.-3)))
+logging.info("dB_settings",dB_settings)
+logging.info("correspond to powers in Watts",10**(dB_settings/10.-3))
 powers = 1e-3*10**(dB_settings/10.)
 #}}}
 #{{{ acq params
@@ -109,12 +110,12 @@ with power_control() as p:
         myfreqs_fields[0]['carrierFreq'] = carrierFreq_MHz
         for B0_index,desired_B0 in enumerate(field_axis[1:]):
                 true_B0 = x_server.set_field(desired_B0)
-                logger.info(strm("My field in G is %f"%true_B0))
+                logging.info("My field in G is %f"%true_B0)
                 time.sleep(3.0)
                 new_carrierFreq_MHz = gamma_eff*true_B0
                 myfreqs_fields[B0_index+1]['Field'] = true_B0
                 myfreqs_fields[B0_index+1]['carrierFreq'] = new_carrierFreq_MHz
-                logger.info(strm("My frequency in MHz is",new_carrierFreq_MHz))
+                logging.info("My frequency in MHz is",new_carrierFreq_MHz)
                 run_spin_echo(
                         nScans = nScans, 
                         indirect_idx = B0_index+1,
@@ -156,8 +157,8 @@ sweep_data.set_prop('acq_params',acq_params)
 sweep_data.name('Field_sweep')
 #}}}        
 myfilename = date+'_'+output_name+'.h5'
-sweep_data.hdf5_write(myfilename,directory=getDATADIR(exp_type='ODNP_NMR_comp/field_dependent'))
-logger.debug(strm(("Name of saved data",data.name()))
-logger.debug(strm("Shape of saved data",ndshape(data)))
+sweep_data.hdf5_write(myfilename,directory=psp.getDATADIR(exp_type='ODNP_NMR_comp/field_dependent'))
+logging.debug("Name of saved data",sweep_data.name())
+logging.debug("Shape of saved data",ndshape(sweep_data))
 fl.show();quit()
 
