@@ -52,7 +52,7 @@ def verifyParams():
 
 output_name = '150mM_TEMPOL'
 node_name = 'echo1'
-adcOffset = 25
+adcOffset = 24
 
 user_sets_Freq = True
 #user_sets_Freq = False
@@ -63,7 +63,7 @@ user_sets_Field = True
 #{{{ set field here
 if user_sets_Field:
     # You must enter field set on XEPR here
-    true_B0 = 3505.56
+    true_B0 = 3507.49
     print("My field in G should be %f"%true_B0)
 #}}}
 #{{{let computer set field
@@ -75,12 +75,12 @@ if not user_sets_Field:
 #}}}
 #{{{ set frequency here
 if user_sets_Freq:
-    carrierFreq_MHz = 14.895663
+    carrierFreq_MHz = 14.903907
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
 #{{{ let computer set frequency
 if not user_sets_Freq:
-    gamma_eff = (14.904040/3507.54)
+    gamma_eff = (14.904354/3507.60)
     carrierFreq_MHz = gamma_eff*true_B0
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
