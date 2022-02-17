@@ -17,24 +17,25 @@ logger = psp.init_logging(level="debug")
 # {{{ Combined ODNP
 # {{{ experimental parameters
 # {{{ these need to change for each sample
-output_name = "3uM_TEMPOL_DNP"
+output_name = "500uM_TEMPOL_DNP"
 adcOffset = 27
-carrierFreq_MHz = 14.895763
+carrierFreq_MHz = 14.895104
 nScans = 1
 nEchoes = 1
 # all times in microseconds
 # note that acq_time_ms is always milliseconds
 p90_us = 4.464
 repetition_us = 12e6
-FIR_rd = 7e6
+FIR_rd = 6e6
 vd_list_us = psp.r_[
-    5e1,2.73e5,5.45e5,8.18e5,1.09e6,1.36e6,1.64e6,
-    1.91e6,2.18e6,2.45e6,2.73e6,3e6
+        5e1,1.82e4,8.82e4,3.64e5,5.45e5,7.27e5,9.09e5,
+        1.09e6,1.45e6,1.63e6,1.81e6,2e6
+        #2.1e3, 1.12e4, 2.23e4, 3.3e4, 4.4e4, 5.6e4, 6.7e4, 7.8e4, 8.9e4, 1e5
 ]
 max_power = 3  # W
 power_steps = 14
 threedown = True
-SW_kHz = 0.95  # AAB and FS have found the min SW without loss to be 1.9 kHz
+SW_kHz = 3.9  # AAB and FS have found the min SW without loss to be 1.9 kHz
 acq_time_ms = 1024.0  # below 1024 is **strongly discouraged**
 tau_us = 3500  # 3.5 ms is a good number
 uw_dip_center_GHz = 9.82
@@ -44,10 +45,10 @@ uw_dip_width_GHz = 0.02
 dB_settings = gen_powerlist(max_power, power_steps + 1, three_down=threedown)
 T1_powers_dB = gen_powerlist(max_power, 5, three_down=False)
 T1_node_names = ["FIR_%ddBm" % j for j in T1_powers_dB]
-print("dB_settings", dB_settings)
-print("correspond to powers in Watts", 10 ** (dB_settings / 10.0 - 3))
-print("T1_powers_dB", T1_powers_dB)
-print("correspond to powers in Watts", 10 ** (T1_powers_dB / 10.0 - 3))
+logger.info("dB_settings", dB_settings)
+logger.info("correspond to powers in Watts", 10 ** (dB_settings / 10.0 - 3))
+logger.info("T1_powers_dB", T1_powers_dB)
+logger.info("correspond to powers in Watts", 10 ** (T1_powers_dB / 10.0 - 3))
 myinput = input("Look ok?")
 if myinput.lower().startswith("n"):
     raise ValueError("you said no!!!")
@@ -63,10 +64,9 @@ nPoints = int(acq_time_ms * SW_kHz + 0.5)
 acq_time_ms = nPoints / SW_kHz
 pad_us = 0
 Ep_ph1_cyc = psp.r_[0, 1, 2, 3]
-Ep_ph2_cyc = psp.r_[0, 1, 2, 3]
-IR_ph1_cyc = psp.r_[0, 1, 2, 3]
-IR_ph2_cyc = psp.r_[0, 1, 2, 3]
-date = datetime.now().strftime("%y%m%d")
+IR_ph1_cyc = psp.r_[0, 2]
+IR_ph2_cyc = psp.r_[0, 2]
+date = '220217'#datetime.now().strftime("%y%m%d")
 # {{{ check for file
 myfilename = date + "_" + output_name + ".h5"
 if os.path.exists(myfilename):
@@ -74,10 +74,6 @@ if os.path.exists(myfilename):
         "the file %s already exists, so I'm not going to let you proceed!" % myfilename
     )
 # }}}
-nPhaseSteps = 16
-total_pts = nPoints*nPhaseSteps
-assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
-
 # {{{run enhancement
 DNP_ini_time = time.time()
 with power_control() as p:
@@ -94,6 +90,7 @@ with power_control() as p:
         nScans=nScans,
         indirect_idx=0,
         indirect_len=len(powers) + 1,
+        ph1_cyc=Ep_ph1_cyc,
         adcOffset=adcOffset,
         carrierFreq_MHz=carrierFreq_MHz,
         nPoints=nPoints,
@@ -104,8 +101,6 @@ with power_control() as p:
         SW_kHz=SW_kHz,
         output_name=output_name,
         indirect_fields=("start_times", "stop_times"),
-        ph1_cyc = Ep_ph1_cyc,
-        ph2_cyc=Ep_ph2_cyc,
         ret_data=None,
     )  # assume that the power axis is 1 longer than the
     #                         "powers" array, so that we can also store the
@@ -122,7 +117,7 @@ with power_control() as p:
     power_settings_dBm = np.zeros_like(dB_settings)
     time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
     for j, this_dB in enumerate(dB_settings):
-        print(
+        logger.debug(
             "SETTING THIS POWER", this_dB, "(", dB_settings[j - 1], powers[j], "W)"
         )
         if j == 0:
@@ -130,7 +125,9 @@ with power_control() as p:
                 uw_dip_center_GHz - uw_dip_width_GHz / 2,
                 uw_dip_center_GHz + uw_dip_width_GHz / 2,
             )
+        logger.debug("done with dip lock 1")
         p.set_power(this_dB)
+        logger.debug("power was set")
         for k in range(10):
             time.sleep(0.5)
             if p.get_power_setting() >= this_dB:
@@ -140,6 +137,7 @@ with power_control() as p:
         time.sleep(5)
         power_settings_dBm[j] = p.get_power_setting()
         time_axis_coords[j + 1]["start_times"] = time.time()
+        logger.debug("gonna run the Ep for this power")
         run_spin_echo(
             nScans=nScans,
             indirect_idx=j + 1,
@@ -153,8 +151,6 @@ with power_control() as p:
             tau_us=tau_us,
             SW_kHz=SW_kHz,
             output_name=output_name,
-            ph1_cyc = Ep_ph1_cyc,
-            ph2_cyc=Ep_ph2_cyc,
             ret_data=DNP_data,
         )
         time_axis_coords[j + 1]["stop_times"] = time.time()
@@ -184,13 +180,13 @@ acq_params = {
 }
 DNP_data.set_prop("acq_params", acq_params)
 DNP_data.name("enhancement")
-#DNP_data.chunk("t", ["ph1", "t2"], [4, -1])
-#DNP_data.setaxis("ph1", Ep_ph1_cyc / 4)
-print("SAVING FILE... %s" % myfilename)
+DNP_data.chunk("t", ["ph1", "t2"], [4, -1])
+DNP_data.setaxis("ph1", Ep_ph1_cyc / 4)
+logger.info("SAVING FILE... %s" % myfilename)
 DNP_data.hdf5_write(myfilename)
-print("FILE SAVED")
-print("Name of saved enhancement data", DNP_data.name())
-print("shape of saved enhancement data", psp.ndshape(DNP_data))
+logger.info("FILE SAVED")
+logger.debug("Name of saved enhancement data", DNP_data.name())
+logger.debug("shape of saved enhancement data", psp.ndshape(DNP_data))
 # }}}
 # {{{run IR
 ini_time = time.time()  # needed b/c data object doesn't exist yet
@@ -244,13 +240,13 @@ with power_control() as p:
     vd_data.set_prop("acq_params", acq_params)
     vd_data.set_prop("postproc_type", IR_postproc)
     vd_data.name("FIR_noPower")
-    #vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
-    #vd_data.setaxis("ph1", IR_ph1_cyc / 4)
-    #vd_data.setaxis("ph2", IR_ph2_cyc / 4)
+    vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
+    vd_data.setaxis("ph1", IR_ph1_cyc / 4)
+    vd_data.setaxis("ph2", IR_ph2_cyc / 4)
     # Need error handling (JF has posted something on this..)
     vd_data.hdf5_write(myfilename)
-    print("\n*** FILE SAVED ***\n")
-    print("Name of saved data", vd_data.name())
+    logger.debug("\n*** FILE SAVED ***\n")
+    logger.debug("Name of saved data", vd_data.name())
     for j, this_dB in enumerate(T1_powers_dB):
         if j == 0:
             MWfreq = p.dip_lock(
@@ -274,22 +270,19 @@ with power_control() as p:
         meter_power = p.get_power_setting()
         ini_time = time.time()
         vd_data = run_IR(
-
-                nPoints=nPoints,
-                nEchoes=nEchoes,
-                vd_list_us=vd_list_us,
-                nScans=nScans,
-                adcOffset=adcOffset,
-                carrierFreq_MHz=carrierFreq_MHz,
-                p90_us=p90_us,
-                tau_us=tau_us,
-                repetition=FIR_rd,
-                output_name=output_name,
-                SW_kHz=SW_kHz,
-                ph1_cyc=IR_ph1_cyc,
-                ph2_cyc=IR_ph2_cyc,
-                ret_data=None,
-                )
+            nPoints=nPoints,
+            nEchoes=nEchoes,
+            vd_list_us=vd_list_us,
+            nScans=nScans,
+            adcOffset=adcOffset,
+            carrierFreq_MHz=carrierFreq_MHz,
+            p90_us=p90_us,
+            tau_us=tau_us,
+            repetition=FIR_rd,
+            output_name=output_name,
+            SW_kHz=SW_kHz,
+            ret_data=None,
+        )
         vd_data.set_prop("start_time", ini_time)
         vd_data.set_prop("stop_time", time.time())
         acq_params = {
@@ -317,9 +310,9 @@ with power_control() as p:
         vd_data.set_prop("acq_params", acq_params)
         vd_data.set_prop("postproc_type", IR_postproc)
         vd_data.name(T1_node_names[j])
-        #vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
-        #vd_data.setaxis("ph1", IR_ph1_cyc / 4)
-        #vd_data.setaxis("ph2", IR_ph2_cyc / 4)
+        vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
+        vd_data.setaxis("ph1", IR_ph1_cyc / 4)
+        vd_data.setaxis("ph2", IR_ph2_cyc / 4)
         vd_data.hdf5_write(myfilename)
     final_frq = p.dip_lock(
         uw_dip_center_GHz - uw_dip_width_GHz / 2,
