@@ -74,6 +74,11 @@ if os.path.exists(myfilename):
         "the file %s already exists, so I'm not going to let you proceed!" % myfilename
     )
 # }}}
+nPhaseSteps = 4
+total_pts = nPoints*nPhaseSteps
+assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
+
+
 # {{{run enhancement
 DNP_ini_time = time.time()
 with power_control() as p:
@@ -125,9 +130,7 @@ with power_control() as p:
                 uw_dip_center_GHz - uw_dip_width_GHz / 2,
                 uw_dip_center_GHz + uw_dip_width_GHz / 2,
             )
-        logger.debug("done with dip lock 1")
         p.set_power(this_dB)
-        logger.debug("power was set")
         for k in range(10):
             time.sleep(0.5)
             if p.get_power_setting() >= this_dB:
@@ -137,7 +140,6 @@ with power_control() as p:
         time.sleep(5)
         power_settings_dBm[j] = p.get_power_setting()
         time_axis_coords[j + 1]["start_times"] = time.time()
-        logger.debug("gonna run the Ep for this power")
         run_spin_echo(
             nScans=nScans,
             indirect_idx=j + 1,
@@ -240,9 +242,9 @@ with power_control() as p:
     vd_data.set_prop("acq_params", acq_params)
     vd_data.set_prop("postproc_type", IR_postproc)
     vd_data.name("FIR_noPower")
-    vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
-    vd_data.setaxis("ph1", IR_ph1_cyc / 4)
-    vd_data.setaxis("ph2", IR_ph2_cyc / 4)
+    #vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
+    #vd_data.setaxis("ph1", IR_ph1_cyc / 4)
+    #vd_data.setaxis("ph2", IR_ph2_cyc / 4)
     # Need error handling (JF has posted something on this..)
     vd_data.hdf5_write(myfilename)
     logger.debug("\n*** FILE SAVED ***\n")
@@ -310,9 +312,9 @@ with power_control() as p:
         vd_data.set_prop("acq_params", acq_params)
         vd_data.set_prop("postproc_type", IR_postproc)
         vd_data.name(T1_node_names[j])
-        vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
-        vd_data.setaxis("ph1", IR_ph1_cyc / 4)
-        vd_data.setaxis("ph2", IR_ph2_cyc / 4)
+        #vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
+        #vd_data.setaxis("ph1", IR_ph1_cyc / 4)
+        #vd_data.setaxis("ph2", IR_ph2_cyc / 4)
         vd_data.hdf5_write(myfilename)
     final_frq = p.dip_lock(
         uw_dip_center_GHz - uw_dip_width_GHz / 2,
