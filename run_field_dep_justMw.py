@@ -28,16 +28,16 @@ mw_freqs = []
 # as this is generally what the SpinCore takes
 # note that acq_time is always milliseconds
 #}}}
-field_axis = psp.r_[3503:3508:.5]
+field_axis = psp.r_[3503:3507:.5]
 logging.info("Here is my field axis:",field_axis)
-powers = r_[3.16]
+powers = r_[3.98]
 min_dBm_step = 0.5
-output_name = '500uM_TEMPOL_field_dep'
-adcOffset = 26
-gamma_eff = (14.904097/3507.59)
+output_name = '5mM_TEMPOL_field_dep'
+adcOffset = 25
+gamma_eff = (14.903500/3507.42)
 nScans = 1
 p90 = 4.464
-repetition = 12e6
+repetition = 3e6
 SW_kHz = 3.9
 acq_ms = 1024.
 tau_us = 3500.
@@ -57,7 +57,7 @@ powers = 1e-3*10**(dB_settings/10.)
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nEchoes = 1
-date = '220217'#datetime.now().strftime('%y%m%d')
+date = '220221'#datetime.now().strftime('%y%m%d')
 nPhaseSteps = len(ph1_cyc)
 deadtime = 10.0
 nPoints = int(acq_ms*SW_kHz+0.5)

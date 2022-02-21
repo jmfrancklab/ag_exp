@@ -17,22 +17,21 @@ logger = psp.init_logging(level="debug")
 # {{{ Combined ODNP
 # {{{ experimental parameters
 # {{{ these need to change for each sample
-output_name = "500uM_TEMPOL_DNP"
-adcOffset = 27
-carrierFreq_MHz = 14.895104
+output_name = "5mM_TEMPOL_DNP"
+adcOffset = 25
+carrierFreq_MHz = 14.895387
 nScans = 1
 nEchoes = 1
 # all times in microseconds
 # note that acq_time_ms is always milliseconds
 p90_us = 4.464
-repetition_us = 12e6
-FIR_rd = 6e6
+repetition_us = 3e6
+FIR_rd = 1.5e6
 vd_list_us = psp.r_[
-        5e1,1.82e4,8.82e4,3.64e5,5.45e5,7.27e5,9.09e5,
-        1.09e6,1.45e6,1.63e6,1.81e6,2e6
+        5e1, 1.36e5, 2.73e5,4.1e5, 5.45e5, 6.82e5, 8.18e5, 9.55e5, 1.09e6, 1.23e6, 1.36e6, 1.5e6
         #2.1e3, 1.12e4, 2.23e4, 3.3e4, 4.4e4, 5.6e4, 6.7e4, 7.8e4, 8.9e4, 1e5
 ]
-max_power = 3  # W
+max_power = 4  # W
 power_steps = 14
 threedown = True
 SW_kHz = 3.9  # AAB and FS have found the min SW without loss to be 1.9 kHz
@@ -66,7 +65,7 @@ pad_us = 0
 Ep_ph1_cyc = psp.r_[0, 1, 2, 3]
 IR_ph1_cyc = psp.r_[0, 2]
 IR_ph2_cyc = psp.r_[0, 2]
-date = '220217'#datetime.now().strftime("%y%m%d")
+date = '220221'#datetime.now().strftime("%y%m%d")
 # {{{ check for file
 myfilename = date + "_" + output_name + ".h5"
 if os.path.exists(myfilename):
