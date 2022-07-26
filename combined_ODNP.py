@@ -17,21 +17,18 @@ logger = psp.init_logging(level="debug")
 # {{{ Combined ODNP
 # {{{ experimental parameters
 # {{{ these need to change for each sample
-output_name = "5mM_TEMPOL_DNP"
-adcOffset = 25
-carrierFreq_MHz = 14.895387
+output_name = "10mM_TEMPOL_DNP_norm"
+adcOffset = 30
+carrierFreq_MHz = 14.901055
 nScans = 1
 nEchoes = 1
 # all times in microseconds
 # note that acq_time_ms is always milliseconds
-p90_us = 4.464
-repetition_us = 3e6
-FIR_rd = 1.5e6
-vd_list_us = psp.r_[
-        5e1, 1.36e5, 2.73e5,4.1e5, 5.45e5, 6.82e5, 8.18e5, 9.55e5, 1.09e6, 1.23e6, 1.36e6, 1.5e6
-        #2.1e3, 1.12e4, 2.23e4, 3.3e4, 4.4e4, 5.6e4, 6.7e4, 7.8e4, 8.9e4, 1e5
-]
-max_power = 4  # W
+p90_us = 4.401
+repetition_us = 1.4e6
+FIR_rd = 1e6
+vd_list_us = np.linspace(5e1,0.65e6,8) 
+max_power = 3.98  # W
 power_steps = 14
 threedown = True
 SW_kHz = 3.9  # AAB and FS have found the min SW without loss to be 1.9 kHz
@@ -39,11 +36,12 @@ acq_time_ms = 1024.0  # below 1024 is **strongly discouraged**
 tau_us = 3500  # 3.5 ms is a good number
 uw_dip_center_GHz = 9.82
 uw_dip_width_GHz = 0.02
+date = '220725'#datetime.now().strftime("%y%m%d")
 # }}}
 # {{{Power settings
 dB_settings = gen_powerlist(max_power, power_steps + 1, three_down=threedown)
-T1_powers_dB = gen_powerlist(max_power, 5, three_down=False)
-T1_node_names = ["FIR_%ddBm" % j for j in T1_powers_dB]
+T1_powers_dB = gen_powerlist(max_power, 10, three_down=False)
+T1_node_names = ["FIR_%0.1fdBm" % j for j in T1_powers_dB]
 logger.info("dB_settings", dB_settings)
 logger.info("correspond to powers in Watts", 10 ** (dB_settings / 10.0 - 3))
 logger.info("T1_powers_dB", T1_powers_dB)
@@ -65,7 +63,6 @@ pad_us = 0
 Ep_ph1_cyc = psp.r_[0, 1, 2, 3]
 IR_ph1_cyc = psp.r_[0, 2]
 IR_ph2_cyc = psp.r_[0, 2]
-date = '220221'#datetime.now().strftime("%y%m%d")
 # {{{ check for file
 myfilename = date + "_" + output_name + ".h5"
 if os.path.exists(myfilename):
@@ -77,19 +74,35 @@ nPhaseSteps = 4
 total_pts = nPoints*nPhaseSteps
 assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
 
-
 # {{{run enhancement
-DNP_ini_time = time.time()
 with power_control() as p:
-    # JF points out it should be possible to save time by removing this (b/c we
+   # JF points out it should be possible to save time by removing this (b/c we
     # shut off microwave right away), but AG notes that doing so causes an
     # error.  Therefore, debug the root cause of the error and remove it!
     retval_thermal = p.dip_lock(
-        uw_dip_center_GHz - uw_dip_width_GHz / 2,
-        uw_dip_center_GHz + uw_dip_width_GHz / 2,
+        uw_dip_center_GHz - uw_dip_width_GHz,
+        uw_dip_center_GHz + uw_dip_width_GHz,
     )
-    p.start_log()
+    
     p.mw_off()
+    dummy = run_spin_echo(
+        nScans=3,
+        indirect_idx=0,
+        indirect_len=len(powers) + 1,
+        ph1_cyc=Ep_ph1_cyc,
+        adcOffset=adcOffset,
+        carrierFreq_MHz=carrierFreq_MHz,
+        nPoints=nPoints,
+        nEchoes=nEchoes,
+        p90_us=p90_us,
+        repetition=repetition_us,
+        tau_us=tau_us,
+        SW_kHz=SW_kHz,
+        output_name=output_name,
+        indirect_fields=("start_times", "stop_times"),
+        ret_data=None)
+    p.start_log()
+    DNP_ini_time = time.time()
     DNP_data = run_spin_echo(
         nScans=nScans,
         indirect_idx=0,
@@ -126,8 +139,8 @@ with power_control() as p:
         )
         if j == 0:
             retval = p.dip_lock(
-                uw_dip_center_GHz - uw_dip_width_GHz / 2,
-                uw_dip_center_GHz + uw_dip_width_GHz / 2,
+                uw_dip_center_GHz - uw_dip_width_GHz,
+                uw_dip_center_GHz + uw_dip_width_GHz,
             )
         p.set_power(this_dB)
         for k in range(10):
@@ -190,18 +203,34 @@ logger.debug("Name of saved enhancement data", DNP_data.name())
 logger.debug("shape of saved enhancement data", psp.ndshape(DNP_data))
 # }}}
 # {{{run IR
-ini_time = time.time()  # needed b/c data object doesn't exist yet
 with power_control() as p:
     retval_IR = p.dip_lock(
-        uw_dip_center_GHz - uw_dip_width_GHz / 2,
-        uw_dip_center_GHz + uw_dip_width_GHz / 2,
+        uw_dip_center_GHz - uw_dip_width_GHz,
+        uw_dip_center_GHz + uw_dip_width_GHz,
     )
     p.mw_off()
+    dummy = run_spin_echo(
+        nScans=3,
+        indirect_idx=0,
+        indirect_len=len(powers) + 1,
+        ph1_cyc=Ep_ph1_cyc,
+        adcOffset=adcOffset,
+        carrierFreq_MHz=carrierFreq_MHz,
+        nPoints=nPoints,
+        nEchoes=nEchoes,
+        p90_us=p90_us,
+        repetition=repetition_us,
+        tau_us=tau_us,
+        SW_kHz=SW_kHz,
+        output_name=output_name,
+        indirect_fields=("start_times", "stop_times"),
+        ret_data=None)
+    ini_time = time.time()  # needed b/c data object doesn't exist yet
     vd_data = run_IR(
         nPoints=nPoints,
         nEchoes=nEchoes,
         vd_list_us=vd_list_us,
-        nScans=nScans,
+        nScans=2,
         adcOffset=adcOffset,
         carrierFreq_MHz=carrierFreq_MHz,
         p90_us=p90_us,
@@ -228,7 +257,7 @@ with power_control() as p:
             "nEchoes",
             "p90_us",
             "deadtime_us",
-            "repetition_us",
+            "FIR_rd",
             "SW_kHz",
             "nPoints",
             "deblank_us",
@@ -241,9 +270,6 @@ with power_control() as p:
     vd_data.set_prop("acq_params", acq_params)
     vd_data.set_prop("postproc_type", IR_postproc)
     vd_data.name("FIR_noPower")
-    #vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
-    #vd_data.setaxis("ph1", IR_ph1_cyc / 4)
-    #vd_data.setaxis("ph2", IR_ph2_cyc / 4)
     # Need error handling (JF has posted something on this..)
     vd_data.hdf5_write(myfilename)
     logger.debug("\n*** FILE SAVED ***\n")
@@ -251,8 +277,8 @@ with power_control() as p:
     for j, this_dB in enumerate(T1_powers_dB):
         if j == 0:
             MWfreq = p.dip_lock(
-                uw_dip_center_GHz - uw_dip_width_GHz / 2,
-                uw_dip_center_GHz + uw_dip_width_GHz / 2,
+                uw_dip_center_GHz - uw_dip_width_GHz,
+                uw_dip_center_GHz + uw_dip_width_GHz,
             )
         p.set_power(this_dB)
         for k in range(10):
@@ -298,7 +324,7 @@ with power_control() as p:
                 "nEchoes",
                 "p90_us",
                 "deadtime_us",
-                "repetition_us",
+                "FIR_rd",
                 "SW_kHz",
                 "nPoints",
                 "deblank_us",
@@ -316,8 +342,8 @@ with power_control() as p:
         #vd_data.setaxis("ph2", IR_ph2_cyc / 4)
         vd_data.hdf5_write(myfilename)
     final_frq = p.dip_lock(
-        uw_dip_center_GHz - uw_dip_width_GHz / 2,
-        uw_dip_center_GHz + uw_dip_width_GHz / 2,
+        uw_dip_center_GHz - uw_dip_width_GHz,
+        uw_dip_center_GHz + uw_dip_width_GHz,
     )
     this_log = p.stop_log()
 SpinCore_pp.stopBoard()
