@@ -1,231 +1,114 @@
+'''Run Inversion Recovery at set power
+======================================
+You will need to manually set the power manually with Spyder and the B12. Once the power is set and the parameters are adjusted, you can run this program to collect the inversion recovery dataset at the set power.
+'''
 from pyspecdata import *
 import os
 import SpinCore_pp
-import socket
-import sys
-import time
+from SpinCore_pp.ppg import run_IR
 from datetime import datetime
-#init_logging(level='debug')
 fl = figlist_var()
-#{{{ Verify arguments compatible with board
-def verifyParams():
-    if (nPoints > 16*1024 or nPoints < 1):
-        print("ERROR: MAXIMUM NUMBER OF POINTS IS 16384.")
-        print("EXITING.")
-        quit()
-    else:
-        print("VERIFIED NUMBER OF POINTS.")
-    if (nScans < 1):
-        print("ERROR: THERE MUST BE AT LEAST 1 SCAN.")
-        print("EXITING.")
-        quit()
-    else:
-        print("VERIFIED NUMBER OF SCANS.")
-    if (p90 < 0.065):
-        print("ERROR: PULSE TIME TOO SMALL.")
-        print("EXITING.")
-        quit()
-    else:
-        print("VERIFIED PULSE TIME.")
-    if (tau < 0.065):
-        print("ERROR: DELAY TIME TOO SMALL.")
-        print("EXITING.")
-        quit()
-    else:
-        print("VERIFIED DELAY TIME.")
-    return
+#{{{importing acquisition parameters
+config_dict = SpinCore_pp.configuration('active.ini')
+nPoints = int(config_dict['acq_time_ms']*config_dict['SW_kHz']+0.5)
 #}}}
-date = datetime.now().strftime('%y%m%d')
-clock_correction = 0
-output_name = 'TEMPOL_150uM_IR'
-node_name = 'FIR_hipower'
-adcOffset = 26
-carrierFreq_MHz = 14.893131
-tx_phases = r_[0.0,90.0,180.0,270.0]
-amplitude = 1.0
-nScans = 1
-nEchoes = 1
 # NOTE: Number of segments is nEchoes * nPhaseSteps
-p90 = 4.464
-deadtime = 10.0
-repetition = 7e6
-SW_kHz = 3.9
-acq_ms = 1024.
-nPoints = int(acq_ms*SW_kHz+0.5)
-# rounding may need to be power of 2
-# have to try this out
-tau_adjust = 0
-deblank = 1.0
-#tau = deadtime + acq_time*1e3*(1./8.) + tau_adjust
-tau = 10000
-pad = 0
-print("ACQUISITION TIME:",acq_ms,"ms")
-print("TAU DELAY:",tau,"us")
+#{{{create filename and save to config file
+date = datetime.now().strftime('%y%m%d')
+config_dict['type'] = 'IR'
+config_dict['date'] = date
+config_dict['IR_counter'] += 1
+filename = f"{config_dict['date']}_{config_dict['chemical']}_{config_dict['type']}"
+#}}}
+#{{{phase cycling
 phase_cycling = True
-ph1 = r_[0,2]
-ph2 = r_[0,2]
 if phase_cycling:
+    ph1 = r_[0,2]
+    ph2 = r_[0,2]
     nPhaseSteps = 4
 if not phase_cycling:
-    nPhaseSteps = 1
+    ph1 = r_[0]
+    ph2 = r_[0]
+    nPhaseSteps = 1 
 total_pts = nPoints*nPhaseSteps
 assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
-    
-#{{{ setting acq_params dictionary
-acq_params = {}
-acq_params['adcOffset'] = adcOffset
-acq_params['carrierFreq_MHz'] = carrierFreq_MHz
-acq_params['amplitude'] = amplitude
-acq_params['nScans'] = nScans
-acq_params['nEchoes'] = nEchoes
-acq_params['p90_us'] = p90
-acq_params['deadtime_us'] = deadtime
-acq_params['repetition_us'] = repetition
-acq_params['SW_kHz'] = SW_kHz
-acq_params['nPoints'] = nPoints
-acq_params['tau_adjust_us'] = tau_adjust
-acq_params['deblank_us'] = deblank
-acq_params['tau_us'] = tau
-if phase_cycling:
-    acq_params['nPhaseSteps'] = nPhaseSteps
 #}}}
-data_length = 2*nPoints*nEchoes*nPhaseSteps
-# NOTE: Number of segments is nEchoes * nPhaseSteps
-#vd_list = r_[5e1,2e5,4e5,6e5,8e5]
-#        1e6,1.2e6,1.4e6,1.6e6,1.8e6,2e6]
-#vd_list = r_[5e1,9.1e4,1.8e5,2.7e5,3.6e5,
-#        #4.5e5,5.5e5,6.4e5,7.3e5,8.2e5,9.1e5,1e6]
-#vd_list = r_[5e1,1.8e4,3.6e4,5.5e4,7.3e4,9.1e4,
-#        1.8e5,3.44e5,5.08e5,6.72e5,8.36e5,1e6]
-#vd_list = r_[5e1,1.8e4,3.6e4,5.5e4,7.3e4,9.1e4,
-#       1.8e5,3.44e5,5.08e5,6.72e5,8.36e5,1e6]
-#vd_list = np.linspace(5e1,1.8e5,32)
-#vd_list = np.linspace(5e1,12e6,12)
-#vd_list = np.linspace(5e1,15e6,16)#5) 
-#vd_list = np.linspace(5e1,10e6,16)
-#vd_list = np.linspace(5e1,4e6,16)
-vd_list = np.linspace(5e1,3.3e6,10)
-#vd_list = np.linspace(5e1,3e6,15)
-#vd_list = np.linspace(5e1,8e6,16)
-
-for index,val in enumerate(vd_list):
-    vd = val
-    print("***")
-    print("INDEX %d - VARIABLE DELAY %f"%(index,val))
-    print("***")
-    for x in range(nScans): 
-        SpinCore_pp.configureTX(adcOffset, carrierFreq_MHz, tx_phases, amplitude, nPoints)
-        acq_time = SpinCore_pp.configureRX(SW_kHz, nPoints, nScans, nEchoes, nPhaseSteps) #ms
-        acq_params['acq_time_ms'] = acq_time
-        SpinCore_pp.init_ppg();
-        if phase_cycling:
-            phase_cycles = dict(ph1 = r_[0,2],
-                    ph2 = r_[0,2])
-            SpinCore_pp.load([
-                ('marker','start',1),
-                ('phase_reset',1),
-                ('delay_TTL',1.0),
-                ('pulse_TTL',2.0*p90,'ph1',phase_cycles['ph1']),
-                ('delay',vd),
-                ('delay_TTL',1.0),
-                ('pulse_TTL',p90,'ph2',phase_cycles['ph2']),
-                ('delay',tau),
-                ('delay_TTL',1.0),
-                ('pulse_TTL',2.0*p90,0),
-                ('delay',deadtime),
-                ('acquire',acq_time),
-                ('delay',repetition),
-                ('jumpto','start')
-                ])
-        if not phase_cycling:
-            SpinCore_pp.load([
-                ('marker','start',nScans),
-                ('phase_reset',1),
-                ('delay_TTL',1.0),
-                ('pulse_TTL',2.0*p90,0.0),
-                ('delay',vd),
-                ('delay_TTL',1.0),
-                ('pulse_TTL',p90,0.0),
-                ('delay',tau),
-                ('delay_TTL',1.0),
-                ('pulse_TTL',2.0*p90,0.0),
-                ('delay',deadtime),
-                ('acquire',acq_time),
-                ('delay',repetition),
-                ('jumpto','start')
-                ])
-        SpinCore_pp.stop_ppg();
-        print("\nRUNNING BOARD...\n")
-        SpinCore_pp.runBoard();
-        raw_data = SpinCore_pp.getData(data_length, nPoints, nEchoes, nPhaseSteps, output_name)
-        raw_data.astype(float)
-        data = []
-        data[::] = np.complex128(raw_data[0::2]+1j*raw_data[1::2])
-        print("COMPLEX DATA ARRAY LENGTH:",np.shape(data)[0])
-        print("RAW DATA ARRAY LENGTH:",np.shape(raw_data)[0])
-        dataPoints = float(np.shape(data)[0])
-        time_axis = r_[0:dataPoints]/(SW_kHz*1e3)
-        data = nddata(np.array(data),'t')
-        data.setaxis('t',time_axis).set_units('t','s')
-        data.name('signal')
-        data.set_prop('acq_params',acq_params)
-        if index == 0 and x == 0:
-            vd_data = ndshape([len(vd_list),nScans,len(time_axis)],['vd','nScans','t']).alloc(dtype=np.complex128)
-            vd_data.setaxis('vd',vd_list*1e-6).set_units('vd','s')
-            vd_data.setaxis('nScans',r_[0:nScans])
-            vd_data.setaxis('t',time_axis).set_units('t','s')
-        vd_data['vd',index]['nScans',x] = data
-        vd_data.set_prop('acq_params',acq_params)
+#{{{make vd list
+vd_kwargs = {
+        j:config_dict[j]
+        for j in ['krho_cold','krho_hot','T1water_cold','T1water_hot']
+        if j in config_dict.keys()
+        }
+vd_list_us = SpinCore_pp.vdlist_from_relaxivities(config_dict['concentration'],**vd_kwargs) * 1e6 #put vd list into microseconds
+#}}}
+#{{{run IR
+vd_data = run_IR(
+        nPoints = nPoints,
+        nEchoes=config_dict['nEchoes'],
+        vd_list_us = vd_list_us,
+        nScans=config_dict['nScans'],
+        adcOffset = config_dict['adc_offset'],
+        carrierFreq_MHz=config_dict['carrierFreq_MHz'],
+        p90_us=config_dict['p90_us'],
+        tau_us = config_dict['tau_us'],
+        repetition=config_dict['repetition_us'],
+        ph1_cyc = ph1,
+        ph2_cyc = ph2,
+        output_name= filename,
+        SW_kHz=config_dict['SW_kHz'],
+        ret_data = None)
 SpinCore_pp.stopBoard();
-print("EXITING...\n")
-print("\n*** *** ***\n")
-save_file = True
+vd_data.set_prop('acq_params',config_dict.asdict())
+vd_data.set_prop("postproc", "spincore_IR_v1")
+vd_data.name(config_dict['type']+'_'+str(config_dict['ir_counter']))
 if phase_cycling:
-    phcyc_names = list(phase_cycles.keys())
-    phcyc_names.sort(reverse=True)
-    phcyc_dims = [len(phase_cycles[j]) for j in phcyc_names]
-    vd_data.chunk('t',phcyc_names+['t2'],phcyc_dims+[-1])
-    vd_data.setaxis('ph1',ph1/4.)
-    vd_data.setaxis('ph2',ph2/4.)
+    vd_data.chunk("t",['ph2','ph1','t2'],[len(ph1),len(ph2),-1])
+    vd_data.setaxis("ph1", ph1 / 4)
+    vd_data.setaxis("ph2", ph2 / 4)
 else:
     vd_data.rename('t','t2')
-while save_file:
-    try:
-        print("SAVING FILE IN TARGET DIRECTORY...")
-        vd_data.name(node_name)
-        vd_data.hdf5_write(date+'_'+output_name+'.h5',
-                directory=getDATADIR(exp_type='ODNP_NMR_comp/ODNP'))
-        print("*** *** *** *** *** *** *** *** *** *** ***")
-        print("\n*** FILE SAVED IN TARGET DIRECTORY ***\n")
-        print("*** *** *** *** *** *** *** *** *** *** ***")
-        print(("Name of saved data",vd_data.name()))
-        print(("Units of saved data",vd_data.get_units('t2')))
-        print(("Shape of saved data",ndshape(vd_data)))
-        save_file = False
-    except Exception as e:
-        print(e)
-        print("\nEXCEPTION ERROR.")
-        print("FILE MAY ALREADY EXIST IN TARGET DIRECTORY.")
-        print("WILL TRY CURRENT DIRECTORY LOCATION...")
-        output_name = input("ENTER dNEW NAME FOR FILE (AT LEAST TWO CHARACTERS):")
-        if len(output_name) is not 0:
-            vd_data.hdf5_write(date+'_'+output_name+'.h5')
-            print("\n*** FILE SAVED WITH NEW NAME IN CURRENT DIRECTORY ***\n")
-            break
-        else:
-            print("\n*** *** ***")
-            print("UNACCEPTABLE NAME. EXITING WITHOUT SAVING DATA.")
-            print("*** *** ***\n")
-            break
 vd_data.reorder(['ph1','ph2','vd','t2'])
+vd_data.ft(['ph1','ph2'],unitary = True)
+vd_data.ft('t2',shift=True)
+#}}}
+#{{{Save Data
+target_directory = getDATADIR(exp_type='ODNP_NMR_comp/inv_rec')
+filename_out = filename + '.h5'
+nodename = vd_data.name()
+if os.path.exists(filename+'.h5'):
+    print('this file already exists so we will add a node to it!')
+    with h5py.File(os.path.normpath(os.path.join(target_directory,
+        f"{filename_out}"))) as fp:
+        if nodename in fp.keys():
+            print("this nodename already exists, lets delete it to overwrite")
+            del fp[nodename]
+    vd_data.hdf5_write(f'{filename_out}/{nodename}', directory = target_directory)
+else:
+    try:
+        vd_data.hdf5_write(filename+'.h5',
+                directory=target_directory)
+    except:
+        print(f"I had problems writing to the correct file {filename}.h5, so I'm going to try to save your file to temp.h5 in the current directory")
+        if os.path.exists("temp.h5"):
+            print("there is a temp.h5 -- I'm removing it")
+            os.remove('temp.h5')
+        vd_data.hdf5_write('temp.h5')
+        print("if I got this far, that probably worked -- be sure to move/rename temp.h5 to the correct name!!")
+print("\n*** FILE SAVED IN TARGET DIRECTORY ***\n")
+print(("Name of saved data",vd_data.name()))
+print(("Shape of saved data",ndshape(vd_data)))
+config_dict.write()
+#}}}
+#{{{visualize raw data
+vd_data.ift('t2')
 fl.next('raw data')
 fl.image(vd_data.setaxis('vd','#'))
 fl.next('abs raw data')
 fl.image(abs(vd_data).setaxis('vd','#'))
-vd_data.ft(['ph1','ph2'])
-vd_data.ft('t2',shift=True)
+vd_data.ft('t2')
 fl.next('FT raw data')
 fl.image(vd_data.setaxis('vd','#'))
 fl.next('FT abs raw data')
 fl.image(abs(vd_data).setaxis('vd','#')['t2':(-1e3,1e3)])
-fl.show();quit()
+fl.show()
+#}}}
