@@ -18,7 +18,7 @@ from datetime import datetime
 from Instruments.XEPR_eth import xepr
 fl = figlist_var()
 #{{{importing acquisition parameters
-config_dict = SpinCore_pp.configuration('AG_config.ini')
+config_dict = SpinCore_pp.configuration('active.ini')
 nPoints = int(config_dict['acq_time_ms']*config_dict['SW_kHz']+0.5)
 #}}}
 #{{{create filename and save to config file
@@ -83,13 +83,13 @@ if phase_cycling:
         echo_data.setaxis('nScans',r_[0:config_dict['nScans']])
     echo_data.reorder(['ph1','nScans','t2'])
     fl.next('image')
-    fl.image(echo_data)
+    fl.image(echo_data.C.mean('nScans'))
     echo_data.ft('t2',shift=True)
     fl.next('image - ft')
-    fl.image(echo_data)
+    fl.image(echo_data.C.mean('nScans'))
     fl.next('image - ft, coherence')
     echo_data.ft(['ph1'])
-    fl.image(echo_data)
+    fl.image(echo_data.C.mean('nScans'))
     fl.next('data plot')
     data_slice = echo_data['ph1',1].C.mean('nScans')
     fl.plot(data_slice, alpha=0.5)

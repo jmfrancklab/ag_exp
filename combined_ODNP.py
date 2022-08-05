@@ -18,9 +18,10 @@ from SpinCore_pp.ppg import run_spin_echo, run_IR
 from Instruments import power_control
 from datetime import datetime
 logger = init_logging(level="debug")
+target_directory = getDATADIR(exp_type="ODNP_NMR_comp/ODNP")
 fl = figlist_var()
 # {{{ import acquisition parameters
-parser_dict = SpinCore_pp.configuration('AG_config.ini')
+parser_dict = SpinCore_pp.configuration('active.ini')
 nPoints = int(parser_dict['acq_time_ms']*parser_dict['SW_kHz']+0.5)
 #}}}
 #{{{create filename and save to config file
@@ -61,10 +62,10 @@ total_pts = len(IR_ph2_cyc)*len(IR_ph1_cyc)*nPoints
 assert total_pts < 2**14, "For IR: You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
 #}}}
 # {{{ check for file
-myfilename = filename + ".h5"
-if os.path.exists(myfilename):
+filename_out = filename + ".h5"
+if os.path.exists(filename_out):
     raise ValueError(
-        "the file %s already exists, so I'm not going to let you proceed!" % myfilename
+        "the file %s already exists, so I'm not going to let you proceed!" % filename_out
     )
 # }}}
 # {{{run enhancement
@@ -76,28 +77,11 @@ with power_control() as p:
         parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
         parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
     )
-    p.start_log()
     p.mw_off()
+    p.start_log()
     DNP_ini_time = time.time()
-    dummy = run_spin_echo(
-        nScans=10,
-        indirect_idx=0,
-        indirect_len=len(powers) + 1,
-        ph1_cyc=Ep_ph1_cyc,
-        adcOffset=parser_dict['adc_offset'],
-        carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
-        nPoints=nPoints,
-        nEchoes=parser_dict['nEchoes'],
-        p90_us=parser_dict['p90_us'],
-        repetition=parser_dict['repetition_us'],
-        tau_us=parser_dict['tau_us'],
-        SW_kHz=parser_dict['SW_kHz'],
-        output_name=filename,
-        indirect_fields=("start_times", "stop_times"),
-        ret_data=None,
-    ) 
     DNP_data = run_spin_echo(
-        nScans=parser_dict['nScans'],
+        nScans=parser_dict['thermal_nScans'],
         indirect_idx=0,
         indirect_len=len(powers) + 1,
         ph1_cyc=Ep_ph1_cyc,
@@ -118,10 +102,12 @@ with power_control() as p:
     #                         that powers and other parameters are defined
     #                         globally w/in the script, as this function is not
     #                         designed to be moved outside the module
+    SpinCore_pp.stopBoard()
     DNP_thermal_done = time.time()
     time_axis_coords = DNP_data.getaxis("indirect")
     time_axis_coords[0]["start_times"] = DNP_ini_time
     time_axis_coords[0]["stop_times"] = DNP_thermal_done
+    DNP_data = DNP_data['nScans',-1:]
     power_settings_dBm = np.zeros_like(dB_settings)
     time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
     for j, this_dB in enumerate(dB_settings):
@@ -158,6 +144,7 @@ with power_control() as p:
             output_name=filename,
             ret_data=DNP_data,
         )
+        SpinCore_pp.stopBoard()
         time_axis_coords[j + 1]["stop_times"] = time.time()
 DNP_data.set_prop("stop_time", time.time())
 DNP_data.set_prop("postproc_type", "spincore_ODNP_v3")
@@ -165,13 +152,21 @@ DNP_data.set_prop("acq_params", parser_dict.asdict())
 DNP_data.name(parser_dict['type'])
 DNP_data.chunk("t", ["ph1", "t2"], [len(Ep_ph1_cyc), -1])
 DNP_data.setaxis("ph1", Ep_ph1_cyc / 4)
-if config_dict['nScans'] > 1:
-    DNP_data.setaxis('nScans',r_[0:parser_dict['nScans']])
+DNP_data.setaxis('nScans',r_[0:parser_dict['nScans']])
 DNP_data.reorder(['ph1','nScans','t2'])
 DNP_data.ft('t2',shift=True)
-echo_data.ft(['ph1'])
-logger.info("SAVING FILE... %s" % myfilename)
-DNP_data.hdf5_write(myfilename)
+DNP_data.ft(['ph1'])
+nodename = DNP_data.name()
+if os.path.exists(filename + ".h5"):
+    print("this file already exists so we will add a node to it!")
+    with h5py.File(os.path.normpath(os.path.join(target_directory, f"{filename_out}"))) as fp:
+        if nodename in fp.keys():
+            print("this nodename already exists, so I will call it temp")
+            echo_data.name("temp")
+            nodename = "temp"
+    DNP_data.hdf5_write(f"{filename_out}/{nodename}",directory = target_directory)
+else:
+    DNP_data.hdf5_write(filename + ".h5",directory=target_directory)
 logger.info("FILE SAVED")
 logger.debug(strm("Name of saved enhancement data", DNP_data.name()))
 logger.debug("shape of saved enhancement data", ndshape(DNP_data))
@@ -188,7 +183,7 @@ with power_control() as p:
         nPoints=nPoints,
         nEchoes=parser_dict['nEchoes'],
         vd_list_us=vd_list_us,
-        nScans=parser_dict['nScans'],
+        nScans=parser_dict['thermal_nScans'],
         adcOffset=parser_dict['adc_offset'],
         carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
         p90_us=parser_dict['p90_us'],
@@ -200,16 +195,30 @@ with power_control() as p:
         ph2_cyc=IR_ph2_cyc,
         ret_data=None,
     )
+    SpinCore_pp.stopBoard()
     vd_data.set_prop("start_time", ini_time)
     vd_data.set_prop("stop_time", time.time())
     vd_data.set_prop("acq_params", parser_dict.asdict())
     vd_data.set_prop("postproc_type", "spincore_IR_v1")
     vd_data.name("FIR_noPower")
-    vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
+    vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
     vd_data.setaxis("ph1", IR_ph1_cyc / 4)
     vd_data.setaxis("ph2", IR_ph2_cyc / 4)
-    # Need error handling (JF has posted something on this..)
-    vd_data.hdf5_write(myfilename)
+    vd_data = vd_data['nScans',-1:]
+    vd_data.setaxis('nScans',r_[0:parser_dict['nScans']])
+    nodename = vd_data.name()
+    if os.path.exists(filename + ".h5"):
+        print("this file already exists so we will add a node to it!")
+        with h5py.File(
+            os.path.normpath(os.path.join(target_directory, f"{filename_out}")
+        )) as fp:
+            if nodename in fp.keys():
+                print("this nodename already exists, so I will call it temp")
+                vd_data.name("temp")
+                nodename = "temp"
+        vd_data.hdf5_write(f"{filename_out}/{nodename}",directoyr=target_directory)
+    else:
+        vd_data.hdf5_write(filename + ".h5",directory=target_directory)
     logger.debug("\n*** FILE SAVED ***\n")
     logger.debug(strm("Name of saved data", vd_data.name()))
     for j, this_dB in enumerate(T1_powers_dB):
@@ -248,23 +257,39 @@ with power_control() as p:
             SW_kHz=parser_dict['SW_kHz'],
             ret_data=None,
         )
+        SpinCore_pp.stopBoard()
         vd_data.set_prop("start_time", ini_time)
         vd_data.set_prop("stop_time", time.time())
         vd_data.set_prop("acq_params", parser_dict.asdict())
         vd_data.set_prop("postproc_type", "spincore_IR_v1")
         vd_data.name(T1_node_names[j])
-        vd_data.chunk("t", ["ph1", "ph2", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
+        vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
         vd_data.setaxis("ph1", IR_ph1_cyc / 4)
         vd_data.setaxis("ph2", IR_ph2_cyc / 4)
-        vd_data.hdf5_write(myfilename)
-    final_frq = p.dip_lock(
-        parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
-        parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
-    )
+        vd_data.setaxis('nScans',r_[0:parser_dict['nScans']])
+        nodename = vd_data.name()
+        if os.path.exists(filename + ".h5"):
+            print("this file already exists so we will add a node to it!")
+            with h5py.File(
+                os.path.normpath(os.path.join(target_directory,f"{filename_out}")
+            )) as fp:
+                if nodename in fp.keys():
+                    print("this nodename already exists, so I will call it temp")
+                    vd_data.name("temp")
+                    nodename = "temp"
+            vd_data.hdf5_write(f"{filename_out}/{nodename}",directory = target_directory)
+        else:
+            vd_data.hdf5_write(filename + ".h5",directory = target_directory)
+        print("\n*** FILE SAVED IN TARGET DIRECTORY ***\n")
+        print(("Name of saved data", vd_data.name()))
+        print(("Shape of saved data", ndshape(vd_data)))
+        final_frq = p.dip_lock(
+            parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
+            parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
+        )
     this_log = p.stop_log()
-SpinCore_pp.stopBoard()
 # }}}
-with h5py.File(myfilename, "a") as f:
+with h5py.File(os.path.join(target_directory, f'{filename_out}'), "a") as f:
     log_grp = f.create_group("log")
     hdf_save_dict_to_group(log_grp, this_log.__getstate__())
 parser_dict.write()
