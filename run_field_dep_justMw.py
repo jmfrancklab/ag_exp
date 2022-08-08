@@ -15,7 +15,7 @@ from Instruments.XEPR_eth import xepr
 import h5py
 fl = figlist_var()
 mw_freqs = []
-field_axis = r_[3496:3502:1.0]
+field_axis = r_[3508:3516:1.0]
 #{{{importing acquisition parameters
 config_dict = SpinCore_pp.configuration('active.ini')
 #}}}
