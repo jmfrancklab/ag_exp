@@ -216,7 +216,7 @@ with power_control() as p:
                 print("this nodename already exists, so I will call it temp")
                 vd_data.name("temp")
                 nodename = "temp"
-        vd_data.hdf5_write(f"{filename_out}/{nodename}",directoyr=target_directory)
+        vd_data.hdf5_write(f"{filename_out}",directoyr=target_directory)
     else:
         vd_data.hdf5_write(filename + ".h5",directory=target_directory)
     logger.debug("\n*** FILE SAVED ***\n")
@@ -277,9 +277,13 @@ with power_control() as p:
                     print("this nodename already exists, so I will call it temp")
                     vd_data.name("temp")
                     nodename = "temp"
-            vd_data.hdf5_write(f"{filename_out}/{nodename}",directory = target_directory)
+            vd_data.hdf5_write(f"{filename_out}",directory = target_directory)
         else:
-            vd_data.hdf5_write(filename + ".h5",directory = target_directory)
+            with h5py.File(
+                    os.path.normpath(os.path.join(target_directory,f"{filename_out}"))) as fp:
+                if nodename in fp.keys():
+                    del fp[nodename]
+            vd_data.hdf5_write(f"{filename_out}",directory = target_directory)
         print("\n*** FILE SAVED IN TARGET DIRECTORY ***\n")
         print(("Name of saved data", vd_data.name()))
         print(("Shape of saved data", ndshape(vd_data)))
@@ -289,7 +293,7 @@ with power_control() as p:
         )
     this_log = p.stop_log()
 # }}}
+parser_dict.write()
 with h5py.File(os.path.join(target_directory, f'{filename_out}'), "a") as f:
     log_grp = f.create_group("log")
     hdf_save_dict_to_group(log_grp, this_log.__getstate__())
-parser_dict.write()
