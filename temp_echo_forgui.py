@@ -43,7 +43,7 @@ with xepr() as x:
 #{{{check total points
 nPhaseSteps = 4
 total_pts = nPoints*nPhaseSteps
-assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
+assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384\nyou could try reducing the acq_time_ms to %f"%(total_pts,config_dict['acq_time_ms']*16384/total_pts)
 #}}}
 #{{{acquire echo
 echo_data = run_spin_echo(
@@ -73,6 +73,7 @@ if config_dict['nScans'] > 1:
     echo_data.setaxis('nScans',r_[0:config_dict['nScans']])
 echo_data.reorder(['ph1','nScans','t2'])
 echo_data.squeeze()
+echo_data.set_units('t2','s')
 #}}}    
 target_directory = getDATADIR(exp_type='ODNP_NMR_comp/Echoes')
 filename_out = filename + '.h5'
