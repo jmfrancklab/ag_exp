@@ -42,7 +42,7 @@ vd_list_us = SpinCore_pp.vdlist_from_relaxivities(parser_dict['concentration'],*
 # {{{Power settings
 dB_settings = gen_powerlist(parser_dict['max_power'], parser_dict['power_steps'] + 1, three_down=True)
 T1_powers_dB = gen_powerlist(parser_dict['max_power'], parser_dict['num_T1s'], three_down=False)
-T1_node_names = ["FIR_%ddBm" % j for j in T1_powers_dB]
+T1_node_names = ["FIR_%0.1fdBm" % j for j in T1_powers_dB]
 logger.info("dB_settings", dB_settings)
 logger.info("correspond to powers in Watts", 10 ** (dB_settings / 10.0 - 3))
 logger.info("T1_powers_dB", T1_powers_dB)
@@ -102,7 +102,7 @@ with power_control() as p:
     #                         that powers and other parameters are defined
     #                         globally w/in the script, as this function is not
     #                         designed to be moved outside the module
-    SpinCore_pp.stopBoard()
+    SpinCore_pp.stopBoard();
     DNP_thermal_done = time.time()
     time_axis_coords = DNP_data.getaxis("indirect")
     time_axis_coords[0]["start_times"] = DNP_ini_time
@@ -144,18 +144,18 @@ with power_control() as p:
             output_name=filename,
             ret_data=DNP_data,
         )
-        SpinCore_pp.stopBoard()
         time_axis_coords[j + 1]["stop_times"] = time.time()
+    SpinCore_pp.stopBoard();
 DNP_data.set_prop("stop_time", time.time())
 DNP_data.set_prop("postproc_type", "spincore_ODNP_v3")
 DNP_data.set_prop("acq_params", parser_dict.asdict())
-DNP_data.name(parser_dict['type'])
 DNP_data.chunk("t", ["ph1", "t2"], [len(Ep_ph1_cyc), -1])
 DNP_data.setaxis("ph1", Ep_ph1_cyc / 4)
 DNP_data.setaxis('nScans',r_[0:parser_dict['nScans']])
 DNP_data.reorder(['ph1','nScans','t2'])
 DNP_data.ft('t2',shift=True)
 DNP_data.ft(['ph1'])
+DNP_data.name(parser_dict['type'])
 nodename = DNP_data.name()
 if os.path.exists(filename + ".h5"):
     print("this file already exists so we will add a node to it!")
@@ -195,17 +195,16 @@ with power_control() as p:
         ph2_cyc=IR_ph2_cyc,
         ret_data=None,
     )
-    SpinCore_pp.stopBoard()
+    SpinCore_pp.stopBoard();
     vd_data.set_prop("start_time", ini_time)
     vd_data.set_prop("stop_time", time.time())
     vd_data.set_prop("acq_params", parser_dict.asdict())
     vd_data.set_prop("postproc_type", "spincore_IR_v1")
-    vd_data.name("FIR_noPower")
     vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
     vd_data.setaxis("ph1", IR_ph1_cyc / 4)
     vd_data.setaxis("ph2", IR_ph2_cyc / 4)
-    vd_data = vd_data['nScans',-1:]
-    vd_data.setaxis('nScans',r_[0:parser_dict['nScans']])
+    vd_data.name("FIR_noPower")
+    vd_data.setaxis('nScans',r_[0:parser_dict['thermal_nScans']])
     nodename = vd_data.name()
     if os.path.exists(filename + ".h5"):
         print("this file already exists so we will add a node to it!")
@@ -257,15 +256,14 @@ with power_control() as p:
             SW_kHz=parser_dict['SW_kHz'],
             ret_data=None,
         )
-        SpinCore_pp.stopBoard()
         vd_data.set_prop("start_time", ini_time)
         vd_data.set_prop("stop_time", time.time())
         vd_data.set_prop("acq_params", parser_dict.asdict())
         vd_data.set_prop("postproc_type", "spincore_IR_v1")
-        vd_data.name(T1_node_names[j])
         vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
         vd_data.setaxis("ph1", IR_ph1_cyc / 4)
         vd_data.setaxis("ph2", IR_ph2_cyc / 4)
+        vd_data.name(T1_node_names[j])
         vd_data.setaxis('nScans',r_[0:parser_dict['nScans']])
         nodename = vd_data.name()
         if os.path.exists(filename + ".h5"):
@@ -291,6 +289,8 @@ with power_control() as p:
             parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
             parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
         )
+    
+    SpinCore_pp.stopBoard();
     this_log = p.stop_log()
 # }}}
 parser_dict.write()

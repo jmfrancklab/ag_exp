@@ -12,7 +12,7 @@ from SpinCore_pp.power_helper import gen_powerlist
 
 fl = figlist_var()
 
-# {{{ experimental parameters
+# {{{ experimental parameter
 # Parameters for Bridge12
 max_power = 4 #W
 power_steps = 18
