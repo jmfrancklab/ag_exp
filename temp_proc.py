@@ -53,3 +53,4 @@ with figlist_var() as fl:
     Field = config_dict['carrierFreq_MHz'] / config_dict['gamma_eff_MHz_G']
     config_dict['gamma_eff_MHz_G'] -= centerfrq*1e-6/Field
     config_dict.write()
+    print(fl)
