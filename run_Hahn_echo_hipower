@@ -54,21 +54,40 @@ total_pts = nPoints*nPhaseSteps
 assert total_pts < 2**14, "You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
 #}}}
 #{{{acquire echo
-echo_data = run_spin_echo(
-        nScans=config_dict['nScans'],
-        indirect_idx = 0,
-        indirect_len = 1,
-        ph1_cyc = ph1_cyc,
-        adcOffset = config_dict['adc_offset'],
-        carrierFreq_MHz = config_dict['carrierFreq_MHz'],
-        nPoints = nPoints,
-        nEchoes = config_dict['nEchoes'],
-        p90_us = config_dict['p90_us'],
-        repetition = config_dict['repetition_us'],
-        tau_us = config_dict['tau_us'],
-        SW_kHz = config_dict['SW_kHz'],
-        output_name = filename,
-        ret_data = None)
+# {{{ Parameters for Bridge12
+powers = r_[config_dict["max_power"]]
+min_dBm_step = 0.5
+for x in range(len(powers)):
+    dB_settings = (
+        round(10 * (log10(powers[x]) + 3.0) / min_dBm_step) * min_dBm_step
+    )  # round to nearest min_dBm_step
+print("dB_settings", dB_settings)
+print("correspond to powers in Watts", 10 ** (dB_settings / 10.0 - 3))
+input("Look ok?")
+powers = 1e-3 * 10 ** (dB_settings / 10.0)
+# }}}
+with power_control() as p:
+    dip_f = p.dip_lock(
+        config_dict["uw_dip_center_GHz"] - config_dict["uw_dip_width_GHz"] / 2,
+        config_dict["uw_dip_center_GHz"] + config_dict["uw_dip_width_GHz"] / 2,
+    )
+    dip_f /= 1e9
+    p.set_power(dB_settings)
+    echo_data = run_spin_echo(
+            nScans=config_dict['nScans'],
+            indirect_idx = 0,
+            indirect_len = 1,
+            ph1_cyc = ph1_cyc,
+            adcOffset = config_dict['adc_offset'],
+            carrierFreq_MHz = config_dict['carrierFreq_MHz'],
+            nPoints = nPoints,
+            nEchoes = config_dict['nEchoes'],
+            p90_us = config_dict['p90_us'],
+            repetition = config_dict['repetition_us'],
+            tau_us = config_dict['tau_us'],
+            SW_kHz = config_dict['SW_kHz'],
+            output_name = filename,
+            ret_data = None)
 #}}}
 #{{{setting acq_params
 echo_data.set_prop("postproc_type","proc_Hahn_echoph")
