@@ -38,6 +38,7 @@ vd_kwargs = {
         if j in parser_dict.keys()
         }
 vd_list_us = SpinCore_pp.vdlist_from_relaxivities(parser_dict['concentration'],**vd_kwargs) * 1e6 #convert to microseconds
+print("YOUR VD LIST IS:",vd_list_us)
 #}}}
 # {{{Power settings
 dB_settings = gen_powerlist(parser_dict['max_power'], parser_dict['power_steps'] + 1, three_down=True)
@@ -244,13 +245,14 @@ with power_control() as p:
     )
     vd_data.set_prop('stop_time',time.time())
     vd_data.set_prop('start_time',ini_time)
+    #vd_data = vd_data['nScans',-1:]
     vd_data.set_prop("acq_params", parser_dict.asdict())
     vd_data.set_prop("postproc_type", "spincore_IR_v1")
     vd_data.name("FIR_noPower")
     vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
     vd_data.setaxis("ph1", IR_ph1_cyc / 4)
     vd_data.setaxis("ph2", IR_ph2_cyc / 4)
-    vd_data.setaxis('nScans',r_[0:parser_dict['thermal_nScans']])
+    #vd_data.setaxis('nScans',r_[0:parser_dict['nScans']])
     nodename = vd_data.name()
     with h5py.File(
         os.path.normpath(os.path.join(target_directory, f"{filename_out}")
@@ -267,6 +269,11 @@ with power_control() as p:
     logger.debug(strm("Name of saved data", vd_data.name()))
     #}}}
     for j, this_dB in enumerate(T1_powers_dB):
+        if j == 0:
+            retval = p.dip_lock(
+                parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
+                parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
+            )
         p.set_power(this_dB)
         for k in range(10):
             time.sleep(0.5)
@@ -320,10 +327,10 @@ with power_control() as p:
         print("\n*** FILE SAVED IN TARGET DIRECTORY ***\n")
         print(("Name of saved data", vd_data.name()))
         print(("Shape of saved data", ndshape(vd_data)))
-        final_frq = p.dip_lock(
-            parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
-            parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
-        )
+    final_frq = p.dip_lock(
+        parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
+        parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
+    )
     this_log = p.stop_log()
 # }}}
 parser_dict.write()
