@@ -57,7 +57,6 @@ vd_data = run_IR(
         output_name= filename,
         SW_kHz=config_dict['SW_kHz'],
         ret_data = None)
-SpinCore_pp.stopBoard();
 vd_data.set_prop('acq_params',config_dict.asdict())
 vd_data.set_prop("postproc", "spincore_IR_v1")
 vd_data.name(config_dict['type']+'_'+str(config_dict['ir_counter']))

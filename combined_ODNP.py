@@ -118,6 +118,7 @@ logger.info("FILE SAVED")
 logger.debug(strm("Name of saved controlled thermal", control_thermal.name()))
 logger.debug("shape of saved controlled thermal", ndshape(control_thermal))
 # }}}
+
 # {{{run enhancement
 input("Now plug the B12 back in and start up the power_server so we can continue!")
 with power_control() as p:
@@ -196,7 +197,7 @@ with power_control() as p:
         )
         time_axis_coords[j + 1]["stop_times"] = time.time()
     DNP_data.set_prop("stop_time", time.time())
-    DNP_data.set_prop("postproc_type", "spincore_ODNP_v3")
+    DNP_data.set_prop("postproc_type", "spincore_ODNP_v4")
     DNP_data.set_prop("acq_params", parser_dict.asdict())
     DNP_data.chunk("t", ["ph1", "t2"], [len(Ep_ph1_cyc), -1])
     DNP_data.setaxis("ph1", Ep_ph1_cyc / 4)
@@ -223,6 +224,7 @@ with power_control() as p:
     # }}}
 # {{{run IR
     #{{{IR no Power
+    p.mw_off()
     ini_time = time.time()
     vd_data = run_IR(
         nPoints=nPoints,
