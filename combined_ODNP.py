@@ -41,7 +41,7 @@ vd_list_us = SpinCore_pp.vdlist_from_relaxivities(parser_dict['concentration'],*
 print("YOUR VD LIST IS:",vd_list_us)
 #}}}
 # {{{Power settings
-dB_settings = gen_powerlist(parser_dict['max_power'], parser_dict['power_steps'] + 1, three_down=True)
+dB_settings = gen_powerlist(parser_dict['max_power'], parser_dict['power_steps'] + 1, three_down=False)
 T1_powers_dB = gen_powerlist(parser_dict['max_power'], parser_dict['num_T1s'], three_down=False)
 T1_node_names = ["FIR_%ddBm" % j for j in T1_powers_dB]
 logger.info("dB_settings", dB_settings)
@@ -108,7 +108,7 @@ try:
     control_thermal.hdf5_write(f"{filename_out}",directory = target_directory)
 except:
     print(f"I had problems writing to the correct file {filename}.h5, so I'm going to try to save your file to temp_ctrl.h5 in the current directory"
-        )
+         )
     if os.path.exists("temp_ctrl.h5"):
         print("There is already a temp_ctrl.h5 -- I'm removing it")
         os.remove("temp_ctrl.h5")
@@ -225,6 +225,8 @@ with power_control() as p:
 # {{{run IR
     #{{{IR no Power
     p.mw_off()
+    time.sleep(16)
+    p.start_log()
     ini_time = time.time()
     vd_data = run_IR(
         nPoints=nPoints,
@@ -244,14 +246,12 @@ with power_control() as p:
     )
     vd_data.set_prop('stop_time',time.time())
     vd_data.set_prop('start_time',ini_time)
-    #vd_data = vd_data['nScans',-1:]
     vd_data.set_prop("acq_params", parser_dict.asdict())
     vd_data.set_prop("postproc_type", "spincore_IR_v1")
     vd_data.name("FIR_noPower")
     vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
     vd_data.setaxis("ph1", IR_ph1_cyc / 4)
     vd_data.setaxis("ph2", IR_ph2_cyc / 4)
-    #vd_data.setaxis('nScans',r_[0:parser_dict['nScans']])
     nodename = vd_data.name()
     with h5py.File(
         os.path.normpath(os.path.join(target_directory, f"{filename_out}")
