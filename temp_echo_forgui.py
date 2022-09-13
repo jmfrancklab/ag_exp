@@ -40,7 +40,7 @@ with xepr() as x:
     change_field = True
     if x.exp_has_been_run:
         prev_field = x.get_field()
-        if abs(prev_field-Field) < 0.01:# 0.01 G is about 43 Hz
+        if abs(prev_field-Field) < 0.02:# 0.02 G is about 85 Hz
             change_field = False
     if change_field:
         Field = x.set_field(Field)
