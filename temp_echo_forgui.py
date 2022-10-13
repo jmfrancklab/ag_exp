@@ -37,8 +37,16 @@ print("Based on that, and the gamma_eff_MHz_G you have in your .ini file, I'm se
 with xepr() as x:
     assert Field < 3700, "are you crazy??? field is too high!"
     assert Field > 3300, "are you crazy?? field is too low!"
-    Field = x.set_field(Field)
-    print("field set to ",Field)
+    change_field = True
+    if x.exp_has_been_run:
+        prev_field = x.get_field()
+        if abs(prev_field-Field) < 0.02:# 0.02 G is about 85 Hz
+            change_field = False
+    if change_field:
+        Field = x.set_field(Field)
+        print("field set to ",Field)
+    else:
+        print("it seems like you were already on resonance, so I'm not going to change the field")
 #}}}
 #{{{check total points
 nPhaseSteps = 4

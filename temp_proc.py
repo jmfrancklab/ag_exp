@@ -29,8 +29,7 @@ with figlist_var() as fl:
     for j in d.getaxis('ph1'):
         fl.plot(abs(d['ph1':j]['t2':tuple(r_[-3e3,3e3]+centerfrq)]), label=f'Δp={j}', alpha=0.5)
     noise = d['ph1',r_[0,2,3]]['t2':centerfrq].run(std,'ph1')
-    signal = abs(d['ph1',r_[0,2,3]]['t2':centerfrq])
-    assert signal > 3*noise
+    signal = abs(d['ph1',1]['t2':centerfrq])
     d = d['t2':tuple(r_[-3e3,3e3]+centerfrq)]
     d.ift('t2')
     fl.next('time domain, filtered')
@@ -50,6 +49,10 @@ with figlist_var() as fl:
     centerfrq = abs(d['ph1',+1]).argmax('t2').item()
     axvline(x=centerfrq/1e3,ls=':',color='r',alpha=0.25)
     # }}}
-    Field = config_dict['carrierFreq_MHz'] / config_dict['gamma_eff_MHz_G']
-    config_dict['gamma_eff_MHz_G'] -= centerfrq*1e-6/Field
-    config_dict.write()
+    if signal > 3*noise:
+        Field = config_dict['carrierFreq_MHz'] / config_dict['gamma_eff_MHz_G']
+        config_dict['gamma_eff_MHz_G'] -= centerfrq*1e-6/Field
+        config_dict.write()
+    else:
+        print('*'*5 + "warning! SNR looks bad! I'm not adjusting γ!!!" + '*'*5) # this is not yet tested!
+    print(fl)
