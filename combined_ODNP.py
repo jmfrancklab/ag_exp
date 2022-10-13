@@ -32,12 +32,12 @@ parser_dict['odnp_counter'] += 1
 filename = f"{parser_dict['date']}_{parser_dict['chemical']}_{parser_dict['type']}_{parser_dict['odnp_counter']}"
 #}}}
 #{{{Make VD list based on concentration
-vd_kwargs = {
-        j:parser_dict[j]
-        for j in ['krho_cold','krho_hot','T1water_cold','T1water_hot']
-        if j in parser_dict.keys()
-        }
-vd_list_us = SpinCore_pp.vdlist_from_relaxivities(parser_dict['concentration'],**vd_kwargs) * 1e6 #convert to microseconds
+#vd_kwargs = {
+#        j:parser_dict[j]
+#        for j in ['krho_cold','krho_hot','T1water_cold','T1water_hot']
+#        if j in parser_dict.keys()
+#        }
+vd_list_us = np.linspace(5e1,6e6,8)#SpinCore_pp.vdlist_from_relaxivities(parser_dict['concentration'],**vd_kwargs) * 1e6 #convert to microseconds
 print("YOUR VD LIST IS:",vd_list_us)
 #}}}
 # {{{Power settings
@@ -98,7 +98,7 @@ control_thermal.set_prop("postproc_type", "spincore_ODNP_v3")
 control_thermal.set_prop("acq_params", parser_dict.asdict())
 control_thermal.chunk("t", ["ph1", "t2"], [len(Ep_ph1_cyc), -1])
 control_thermal.setaxis("ph1", Ep_ph1_cyc / 4)
-control_thermal.setaxis('nScans',r_[0:parser_dict['nScans']])
+#control_thermal.setaxis('nScans',r_[0:parser_dict['nScans']])
 control_thermal.reorder(['ph1','nScans','t2'])
 control_thermal.ft('t2',shift=True)
 control_thermal.ft(['ph1'], unitary = True)
@@ -130,10 +130,11 @@ with power_control() as p:
         parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
     )
     p.mw_off()
+    time.sleep(16.0)
     p.start_log()
     DNP_ini_time = time.time()
     DNP_data = run_spin_echo(
-        nScans=parser_dict['thermal_nScans'],
+        nScans=parser_dict['nScans'],
         indirect_idx=0,
         indirect_len=len(powers) + 1,
         ph1_cyc=Ep_ph1_cyc,
@@ -158,7 +159,7 @@ with power_control() as p:
     time_axis_coords = DNP_data.getaxis("indirect")
     time_axis_coords[0]["start_times"] = DNP_ini_time
     time_axis_coords[0]["stop_times"] = DNP_thermal_done
-    DNP_data = DNP_data['nScans',-1:]
+    #DNP_data = DNP_data['nScans',-1:]
     power_settings_dBm = np.zeros_like(dB_settings)
     time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
     for j, this_dB in enumerate(dB_settings):
@@ -232,7 +233,7 @@ with power_control() as p:
         nPoints=nPoints,
         nEchoes=parser_dict['nEchoes'],
         vd_list_us=vd_list_us,
-        nScans=parser_dict['thermal_nScans'],
+        nScans=parser_dict['nScans'],
         adcOffset=parser_dict['adc_offset'],
         carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
         p90_us=parser_dict['p90_us'],
