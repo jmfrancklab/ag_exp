@@ -64,10 +64,9 @@ echo_data = run_spin_echo(
         nPoints = nPoints,
         nEchoes = config_dict['nEchoes'],
         p90_us = config_dict['p90_us'],
-        repetition = config_dict['repetition_us'],
+        repetition_us = config_dict['repetition_us'],
         tau_us = config_dict['tau_us'],
         SW_kHz = config_dict['SW_kHz'],
-        output_name = filename,
         ret_data = None)
 #}}}
 #{{{setting acq_params

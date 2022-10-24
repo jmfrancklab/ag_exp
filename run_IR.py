@@ -39,7 +39,8 @@ vd_kwargs = {
         for j in ['krho_cold','krho_hot','T1water_cold','T1water_hot']
         if j in config_dict.keys()
         }
-vd_list_us = SpinCore_pp.vdlist_from_relaxivities(config_dict['concentration'],**vd_kwargs) * 1e6 #put vd list into microseconds
+#vd_list_us = SpinCore_pp.vdlist_from_relaxivities(config_dict['concentration'],**vd_kwargs) * 1e6 #put vd list into microseconds
+vd_list_us = np.linspace(5e1,3.2e6,8)
 #}}}
 #{{{run IR
 vd_data = run_IR(

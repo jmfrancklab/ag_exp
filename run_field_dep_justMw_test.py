@@ -19,13 +19,23 @@ mw_freqs = []
 # {{{importing acquisition parameters
 config_dict = SpinCore_pp.configuration("active.ini")
 # }}}
-#{{{make field axis
-left = (((config_dict['guessed_mhz_to_ghz']*config_dict['uw_dip_center_GHz'])/config_dict['gamma_eff_MHz_G']))
-left = left - (config_dict['field_width']/2)
-right = (((config_dict['guessed_mhz_to_ghz']*config_dict['uw_dip_center_GHz'])/config_dict['gamma_eff_MHz_G']))
-right = right + (config_dict['field_width']/2)
+# {{{make field axis
+left = (
+    config_dict["guessed_mhz_to_ghz"] * config_dict["uw_dip_center_GHz"]
+) / config_dict["gamma_eff_MHz_G"]
+left = left - (config_dict["field_width"] / 2)
+right = (
+    config_dict["guessed_mhz_to_ghz"] * config_dict["uw_dip_center_GHz"]
+) / config_dict["gamma_eff_MHz_G"]
+right = right + (config_dict["field_width"] / 2)
+assert right < 3700, "Are you crazy??? Field is too high!!!"
+assert left > 3300, "Are you crazy??? Field is too low!!!"
 field_axis = r_[left:right:1.0]
-#}}}
+logger.info("Your field axis is:", field_axis)
+myinput = input("Does this look okay?")
+if myinput.lower().startswith("n"):
+    raise ValueError("You said no!!!")
+# }}}
 # {{{create filename and save to config file
 date = datetime.now().strftime("%y%m%d")
 config_dict["type"] = "field"
@@ -118,8 +128,7 @@ with power_control() as p:
                 SW_kHz=config_dict["SW_kHz"],
                 ret_data=sweep_data,
             )
-        SpinCore_pp.stopBoard()    
-sweep_data.set_prop('acq_params',config_dict.asdict())
+sweep_data.set_prop("acq_params", config_dict.asdict())
 # }}}
 # {{{chunk and save data
 if phase_cycling:
@@ -134,15 +143,7 @@ if phase_cycling:
         .setaxis("indirect", "#")
         .set_units("indirect", "scan #")
     )
-    sweep_data.reorder('t2',first=False)
-    sweep_data.ft("t2", shift=True)
-    sweep_data.ft("ph1", unitary=True)
-    fl.next("Raw - frequency")
-    fl.image(
-        sweep_data.C.mean("nScans")
-        .setaxis("indirect", "#")
-        .set_units("indirect", "scan #")
-    )
+    sweep_data.reorder("t2", first=False)
 else:
     if config_dict["nScans"] > 1:
         sweep_data.setaxis("nScans", r_[0 : config_dict["nScans"]])
@@ -153,13 +154,6 @@ else:
         .set_units("indirect", "scan #")
     )
     sweep_data.reorder("t", first=False)
-    sweep_data.ft("t", shift=True)
-    fl.next("Raw - frequency")
-    fl.image(
-        sweep_data.C.mean("nScans")
-        .setaxis("indirect", "#")
-        .set_units("indirect", "scan #")
-    )
 sweep_data.name(config_dict["type"] + "_" + str(config_dict["field_counter"]))
 sweep_data.set_prop("postproc_type", "field_sweep_v1")
 target_directory = getDATADIR(exp_type="ODNP_NMR_comp/field_dependent")
