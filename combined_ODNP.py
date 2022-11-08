@@ -1,3 +1,4 @@
+
 '''Automated Combined DNP with Log
 ==================================
 This needs to be run in sync with the power control server. To do so:
@@ -17,32 +18,41 @@ from SpinCore_pp.power_helper import gen_powerlist
 from SpinCore_pp.ppg import run_spin_echo, run_IR
 from Instruments import power_control
 from datetime import datetime
+
 logger = init_logging(level="debug")
 target_directory = getDATADIR(exp_type="ODNP_NMR_comp/ODNP")
 fl = figlist_var()
 # {{{ import acquisition parameters
 parser_dict = SpinCore_pp.configuration('active.ini')
 nPoints = int(parser_dict['acq_time_ms']*parser_dict['SW_kHz']+0.5)
-#}}}
-#{{{create filename and save to config file
+# }}}
+# {{{create filename and save to config file
 date = datetime.now().strftime('%y%m%d')
 parser_dict['type'] = 'ODNP'
 parser_dict['date'] = date
 parser_dict['odnp_counter'] += 1
 filename = f"{parser_dict['date']}_{parser_dict['chemical']}_{parser_dict['type']}_{parser_dict['odnp_counter']}"
-#}}}
-#{{{Make VD list based on concentration
-#vd_kwargs = {
-#        j:parser_dict[j]
-#        for j in ['krho_cold','krho_hot','T1water_cold','T1water_hot']
-#        if j in parser_dict.keys()
-#        }
-vd_list_us = np.linspace(5e1,6e6,8)#SpinCore_pp.vdlist_from_relaxivities(parser_dict['concentration'],**vd_kwargs) * 1e6 #convert to microseconds
-print("YOUR VD LIST IS:",vd_list_us)
-#}}}
+filename_out = filename + ".h5"
+# }}}
+# {{{Make VD list based on concentration
+vd_kwargs = {
+    j: parser_dict[j]
+    for j in ['krho_cold','krho_hot','T1water_cold','T1water_hot']
+    if j in parser_dict.keys()
+}
+vd_list_us = (
+    SpinCore_pp.vdlist_from_relaxivities(parser_dict["concentration"], **vd_kwargs)
+    * 1e6
+)  # convert to microseconds
+FIR_rep = 2*(1.0/(parser_dict['concentration']*parser_dict['krho_hot']+1.0/parser_dict['T1water_hot']))*1e6
+# }}}
 # {{{Power settings
-dB_settings = gen_powerlist(parser_dict['max_power'], parser_dict['power_steps'] + 1, three_down=False)
-T1_powers_dB = gen_powerlist(parser_dict['max_power'], parser_dict['num_T1s'], three_down=False)
+dB_settings = gen_powerlist(
+    parser_dict['max_power'], parser_dict['power_steps'] + 1, three_down=True
+)
+T1_powers_dB = gen_powerlist(
+    parser_dict['max_power'], parser_dict['num_T1s'], three_down=False
+)
 T1_node_names = ["FIR_%ddBm" % j for j in T1_powers_dB]
 logger.info("dB_settings", dB_settings)
 logger.info("correspond to powers in Watts", 10 ** (dB_settings / 10.0 - 3))
@@ -53,24 +63,32 @@ if myinput.lower().startswith("n"):
     raise ValueError("you said no!!!")
 powers = 1e-3 * 10 ** (dB_settings / 10.0)
 # }}}
-#{{{phase cycling
+# {{{phase cycling
 Ep_ph1_cyc = r_[0, 1, 2, 3]
-total_points = len(Ep_ph1_cyc)*nPoints
-assert total_points < 2**14, "For Ep: You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
+total_points = len(Ep_ph1_cyc) * nPoints
+assert total_points < 2 ** 14, (
+    "For Ep: You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"
+    % total_pts
+)    
 IR_ph1_cyc = r_[0, 2]
 IR_ph2_cyc = r_[0, 2]
-total_pts = len(IR_ph2_cyc)*len(IR_ph1_cyc)*nPoints
-assert total_pts < 2**14, "For IR: You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"%total_pts
-#}}}
+total_pts = len(IR_ph2_cyc) * len(IR_ph1_cyc) * nPoints
+assert total_pts < 2 ** 14, (
+    "For IR: You are trying to acquire %d points (too many points) -- either change SW or acq time so nPoints x nPhaseSteps is less than 16384"
+    % total_pts
+)
+# }}}
 # {{{ check for file
-filename_out = filename + ".h5"
 if os.path.exists(filename_out):
     raise ValueError(
-        "the file %s already exists, so I'm not going to let you proceed!" % filename_out
+        "the file %s already exists, so I'm not going to let you proceed!"
+        % filename_out
     )
-input("B12 needs to be unplugged and turned off for the thermal! Don't have the power server running just yet")
+input(
+    "B12 needs to be unplugged and turned off for the thermal! Don't have the power server running just yet"
+    )
 # }}}
-# {{{Collect Thermals
+# {{{Collect Thermals - serves as a control to compare the thermal of Ep to ensure no microwaves were leaking
 control_thermal = run_spin_echo(
     nScans=parser_dict['thermal_nScans'],
     indirect_idx=0,
@@ -84,7 +102,6 @@ control_thermal = run_spin_echo(
     repetition=parser_dict['repetition_us'],
     tau_us=parser_dict['tau_us'],
     SW_kHz=parser_dict['SW_kHz'],
-    output_name=filename,
     indirect_fields=("start_times", "stop_times"),
     ret_data=None,
 )  # assume that the power axis is 1 longer than the
@@ -93,22 +110,19 @@ control_thermal = run_spin_echo(
 #                         that powers and other parameters are defined
 #                         globally w/in the script, as this function is not
 #                         designed to be moved outside the module
-control_thermal = control_thermal['nScans',-1:]
 control_thermal.set_prop("postproc_type", "spincore_ODNP_v3")
 control_thermal.set_prop("acq_params", parser_dict.asdict())
 control_thermal.chunk("t", ["ph1", "t2"], [len(Ep_ph1_cyc), -1])
 control_thermal.setaxis("ph1", Ep_ph1_cyc / 4)
-#control_thermal.setaxis('nScans',r_[0:parser_dict['nScans']])
 control_thermal.reorder(['ph1','nScans','t2'])
-control_thermal.ft('t2',shift=True)
-control_thermal.ft(['ph1'], unitary = True)
 control_thermal.name('control_thermal')
 nodename = control_thermal.name()
 try:
-    control_thermal.hdf5_write(f"{filename_out}",directory = target_directory)
+    control_thermal.hdf5_write(f"{filename_out}", directory=target_directory)
 except:
-    print(f"I had problems writing to the correct file {filename}.h5, so I'm going to try to save your file to temp_ctrl.h5 in the current directory"
-         )
+    print(
+        f"I had problems writing to the correct file {filename}.h5, so I'm going to try to save your file to temp_ctrl.h5 in the current directory"
+    )
     if os.path.exists("temp_ctrl.h5"):
         print("There is already a temp_ctrl.h5 -- I'm removing it")
         os.remove("temp_ctrl.h5")
@@ -137,7 +151,7 @@ with power_control() as p:
     DNP_data = run_spin_echo(
         nScans=parser_dict['nScans'],
         indirect_idx=0,
-        indirect_len=len(powers) + 1,
+        indirect_len=len(powers) + 4,
         ph1_cyc=Ep_ph1_cyc,
         adcOffset=parser_dict['adc_offset'],
         carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
@@ -160,7 +174,84 @@ with power_control() as p:
     time_axis_coords = DNP_data.getaxis("indirect")
     time_axis_coords[0]["start_times"] = DNP_ini_time
     time_axis_coords[0]["stop_times"] = DNP_thermal_done
-    #DNP_data = DNP_data['nScans',-1:]
+    DNP_ini_time = time.time()
+    DNP_data = run_spin_echo(
+        nScans=parser_dict['nScans'],
+        indirect_idx=1,
+        indirect_len=len(powers) + 4,
+        ph1_cyc=Ep_ph1_cyc,
+        adcOffset=parser_dict['adc_offset'],
+        carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
+        nPoints=nPoints,
+        nEchoes=parser_dict['nEchoes'],
+        p90_us=parser_dict['p90_us'],
+        repetition=parser_dict['repetition_us'],
+        tau_us=parser_dict['tau_us'],
+        SW_kHz=parser_dict['SW_kHz'],
+        output_name=filename,
+        indirect_fields=("start_times", "stop_times"),
+        ret_data=DNP_data,
+    )  # assume that the power axis is 1 longer than the
+    #                         "powers" array, so that we can also store the
+    #                         thermally polarized signal in this array (note
+    #                         that powers and other parameters are defined
+    #                         globally w/in the script, as this function is not
+    #                         designed to be moved outside the module
+    DNP_thermal_done = time.time()
+    time_axis_coords[1]["start_times"] = DNP_ini_time
+    time_axis_coords[1]["stop_times"] = DNP_thermal_done
+    DNP_ini_time = time.time()
+    DNP_data = run_spin_echo(
+        nScans=parser_dict['nScans'],
+        indirect_idx=2,
+        indirect_len=len(powers) + 4,
+        ph1_cyc=Ep_ph1_cyc,
+        adcOffset=parser_dict['adc_offset'],
+        carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
+        nPoints=nPoints,
+        nEchoes=parser_dict['nEchoes'],
+        p90_us=parser_dict['p90_us'],
+        repetition=parser_dict['repetition_us'],
+        tau_us=parser_dict['tau_us'],
+        SW_kHz=parser_dict['SW_kHz'],
+        output_name=filename,
+        indirect_fields=("start_times", "stop_times"),
+        ret_data=DNP_data,
+    )  # assume that the power axis is 1 longer than the
+    #                         "powers" array, so that we can also store the
+    #                         thermally polarized signal in this array (note
+    #                         that powers and other parameters are defined
+    #                         globally w/in the script, as this function is not
+    #                         designed to be moved outside the module
+    DNP_thermal_done = time.time()
+    time_axis_coords[2]["start_times"] = DNP_ini_time
+    time_axis_coords[2]["stop_times"] = DNP_thermal_done
+    DNP_ini_time = time.time()
+    DNP_data = run_spin_echo(
+        nScans=parser_dict['nScans'],
+        indirect_idx=3,
+        indirect_len=len(powers) + 4,
+        ph1_cyc=Ep_ph1_cyc,
+        adcOffset=parser_dict['adc_offset'],
+        carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
+        nPoints=nPoints,
+        nEchoes=parser_dict['nEchoes'],
+        p90_us=parser_dict['p90_us'],
+        repetition=parser_dict['repetition_us'],
+        tau_us=parser_dict['tau_us'],
+        SW_kHz=parser_dict['SW_kHz'],
+        output_name=filename,
+        indirect_fields=("start_times", "stop_times"),
+        ret_data=DNP_data,
+    )  # assume that the power axis is 1 longer than the
+    #                         "powers" array, so that we can also store the
+    #                         thermally polarized signal in this array (note
+    #                         that powers and other parameters are defined
+    #                         globally w/in the script, as this function is not
+    #                         designed to be moved outside the module
+    DNP_thermal_done = time.time()
+    time_axis_coords[3]["start_times"] = DNP_ini_time
+    time_axis_coords[3]["stop_times"] = DNP_thermal_done
     power_settings_dBm = np.zeros_like(dB_settings)
     time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
     for j, this_dB in enumerate(dB_settings):
@@ -184,8 +275,8 @@ with power_control() as p:
         time_axis_coords[j + 1]["start_times"] = time.time()
         run_spin_echo(
             nScans=parser_dict['nScans'],
-            indirect_idx=j + 1,
-            indirect_len=len(powers) + 1,
+            indirect_idx=j + 4,
+            indirect_len=len(powers) + 4,
             adcOffset=parser_dict['adc_offset'],
             carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
             nPoints=nPoints,
@@ -197,7 +288,7 @@ with power_control() as p:
             output_name=filename,
             ret_data=DNP_data,
         )
-        time_axis_coords[j + 1]["stop_times"] = time.time()
+        time_axis_coords[j + 4]["stop_times"] = time.time()
     DNP_data.set_prop("stop_time", time.time())
     DNP_data.set_prop("postproc_type", "spincore_ODNP_v4")
     DNP_data.set_prop("acq_params", parser_dict.asdict())
