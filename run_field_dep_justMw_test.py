@@ -136,7 +136,7 @@ if phase_cycling:
     sweep_data.setaxis("ph1", r_[0.0, 1.0, 2.0, 3.0] / 4)
     if config_dict["nScans"] > 1:
         sweep_data.setaxis("nScans", r_[0 : config_dict["nScans"]])
-    sweep_data.reorder(["ph1", "nScans", "t2"])
+    sweep_data.reorder(["ph1", "indirect", "t2"])
     fl.next("Raw - time")
     fl.image(
         sweep_data.C.mean("nScans")

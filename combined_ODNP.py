@@ -45,6 +45,7 @@ vd_list_us = (
     * 1e6
 )  # convert to microseconds
 FIR_rep = 2*(1.0/(parser_dict['concentration']*parser_dict['krho_hot']+1.0/parser_dict['T1water_hot']))*1e6
+parser_dict['fir_rep']=FIR_rep
 # }}}
 # {{{Power settings
 dB_settings = gen_powerlist(
@@ -99,7 +100,7 @@ control_thermal = run_spin_echo(
     nPoints=nPoints,
     nEchoes=parser_dict['nEchoes'],
     p90_us=parser_dict['p90_us'],
-    repetition=parser_dict['repetition_us'],
+    repetition_us=parser_dict['repetition_us'],
     tau_us=parser_dict['tau_us'],
     SW_kHz=parser_dict['SW_kHz'],
     indirect_fields=("start_times", "stop_times"),
@@ -133,6 +134,58 @@ logger.info("FILE SAVED")
 logger.debug(strm("Name of saved controlled thermal", control_thermal.name()))
 logger.debug("shape of saved controlled thermal", ndshape(control_thermal))
 # }}}
+# {{{IR at no power
+#   this is outside the log, so to deal with this during processing, just check
+#   if the start and stop time are outside the log (greater than last time of
+#   the time axis, or smaller than the first)
+ini_time = time.time()
+vd_data = None
+for vd_idx, vd in enumerate(vd_list_us):
+    vd_data = run_IR(
+        nPoints=nPoints,
+        nEchoes=parser_dict["nEchoes"],
+        indirect_idx=vd_idx,
+        indirect_len=len(vd_list_us),
+        vd=vd,
+        nScans=4,#parser_dict["thermal_nScans"],
+        adcOffset=parser_dict["adc_offset"],
+        carrierFreq_MHz=parser_dict["carrierFreq_MHz"],
+        p90_us=parser_dict["p90_us"],
+        tau_us=parser_dict["tau_us"],
+        repetition_us=FIR_rep,
+        ph1_cyc=IR_ph1_cyc,
+        ph2_cyc=IR_ph2_cyc,
+        SW_kHz=parser_dict["SW_kHz"],
+        ret_data=vd_data,
+    )
+vd_data.rename("indirect", "vd")
+vd_data.setaxis("vd", vd_list_us * 1e-6).set_units("vd", "s")
+vd_data.set_prop("stop_time", time.time())
+vd_data.set_prop("start_time", ini_time)
+vd_data.set_prop("acq_params", parser_dict.asdict())
+vd_data.set_prop("postproc_type", "spincore_IR_v1")
+vd_data.name("FIR_noPower")
+vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
+vd_data.setaxis("ph1", IR_ph1_cyc / 4)
+vd_data.setaxis("ph2", IR_ph2_cyc / 4)
+vd_data.setaxis("nScans", r_[0 : 4])#parser_dict["thermal_nScans"]])
+nodename = vd_data.name()
+with h5py.File(
+    os.path.normpath(os.path.join(target_directory, f"{filename_out}"))
+) as fp:
+    if nodename in fp.keys():
+        print("this nodename already exists, so I will call it temp")
+        vd_data.name("temp_noPower")
+        nodename = "temp_noPower"
+        vd_data.hdf5_write(f"{filename_out}", directory=target_directory)
+        input(
+            f"I had problems writing to the correct file {filename_out} so I'm going to try to save this node as temp_noPower"
+        )
+    else:
+        vd_data.hdf5_write(f"{filename_out}", directory=target_directory)
+logger.debug("\n*** FILE SAVED ***\n")
+logger.debug(strm("Name of saved data", vd_data.name()))
+# }}}
 
 # {{{run enhancement
 input("Now plug the B12 back in and start up the power_server so we can continue!")
@@ -158,10 +211,9 @@ with power_control() as p:
         nPoints=nPoints,
         nEchoes=parser_dict['nEchoes'],
         p90_us=parser_dict['p90_us'],
-        repetition=parser_dict['repetition_us'],
+        repetition_us=parser_dict['repetition_us'],
         tau_us=parser_dict['tau_us'],
         SW_kHz=parser_dict['SW_kHz'],
-        output_name=filename,
         indirect_fields=("start_times", "stop_times"),
         ret_data=None,
     )  # assume that the power axis is 1 longer than the
@@ -185,10 +237,9 @@ with power_control() as p:
         nPoints=nPoints,
         nEchoes=parser_dict['nEchoes'],
         p90_us=parser_dict['p90_us'],
-        repetition=parser_dict['repetition_us'],
+        repetition_us=parser_dict['repetition_us'],
         tau_us=parser_dict['tau_us'],
         SW_kHz=parser_dict['SW_kHz'],
-        output_name=filename,
         indirect_fields=("start_times", "stop_times"),
         ret_data=DNP_data,
     )  # assume that the power axis is 1 longer than the
@@ -211,10 +262,9 @@ with power_control() as p:
         nPoints=nPoints,
         nEchoes=parser_dict['nEchoes'],
         p90_us=parser_dict['p90_us'],
-        repetition=parser_dict['repetition_us'],
+        repetition_us=parser_dict['repetition_us'],
         tau_us=parser_dict['tau_us'],
         SW_kHz=parser_dict['SW_kHz'],
-        output_name=filename,
         indirect_fields=("start_times", "stop_times"),
         ret_data=DNP_data,
     )  # assume that the power axis is 1 longer than the
@@ -237,10 +287,9 @@ with power_control() as p:
         nPoints=nPoints,
         nEchoes=parser_dict['nEchoes'],
         p90_us=parser_dict['p90_us'],
-        repetition=parser_dict['repetition_us'],
+        repetition_us=parser_dict['repetition_us'],
         tau_us=parser_dict['tau_us'],
         SW_kHz=parser_dict['SW_kHz'],
-        output_name=filename,
         indirect_fields=("start_times", "stop_times"),
         ret_data=DNP_data,
     )  # assume that the power axis is 1 longer than the
@@ -272,7 +321,7 @@ with power_control() as p:
             raise ValueError("After 10 tries, the power has still not settled")
         time.sleep(5)
         power_settings_dBm[j] = p.get_power_setting()
-        time_axis_coords[j + 1]["start_times"] = time.time()
+        time_axis_coords[j + 4]["start_times"] = time.time()
         run_spin_echo(
             nScans=parser_dict['nScans'],
             indirect_idx=j + 4,
@@ -282,10 +331,9 @@ with power_control() as p:
             nPoints=nPoints,
             nEchoes=parser_dict['nEchoes'],
             p90_us=parser_dict['p90_us'],
-            repetition=parser_dict['repetition_us'],
+            repetition_us=parser_dict['repetition_us'],
             tau_us=parser_dict['tau_us'],
             SW_kHz=parser_dict['SW_kHz'],
-            output_name=filename,
             ret_data=DNP_data,
         )
         time_axis_coords[j + 4]["stop_times"] = time.time()
@@ -296,8 +344,6 @@ with power_control() as p:
     DNP_data.setaxis("ph1", Ep_ph1_cyc / 4)
     DNP_data.setaxis('nScans',r_[0:parser_dict['nScans']])
     DNP_data.reorder(['ph1','nScans','t2'])
-    DNP_data.ft('t2',shift=True)
-    DNP_data.ft(['ph1'], unitary = True)
     DNP_data.name(parser_dict['type'])
     nodename = DNP_data.name()
     try:
@@ -316,56 +362,7 @@ with power_control() as p:
     logger.debug("shape of saved enhancement data", ndshape(DNP_data))
     # }}}
 # {{{run IR
-    #{{{IR no Power
-    p.mw_off()
-    time.sleep(16)
-    p.start_log()
-    ini_time = time.time()
-    vd_data = run_IR(
-        nPoints=nPoints,
-        nEchoes=parser_dict['nEchoes'],
-        vd_list_us=vd_list_us,
-        nScans=parser_dict['nScans'],
-        adcOffset=parser_dict['adc_offset'],
-        carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
-        p90_us=parser_dict['p90_us'],
-        tau_us=parser_dict['tau_us'],
-        repetition=parser_dict['FIR_rep'],
-        output_name=filename,
-        SW_kHz=parser_dict['SW_kHz'],
-        ph1_cyc=IR_ph1_cyc,
-        ph2_cyc=IR_ph2_cyc,
-        ret_data=None,
-    )
-    vd_data.set_prop('stop_time',time.time())
-    vd_data.set_prop('start_time',ini_time)
-    vd_data.set_prop("acq_params", parser_dict.asdict())
-    vd_data.set_prop("postproc_type", "spincore_IR_v1")
-    vd_data.name("FIR_noPower")
-    vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
-    vd_data.setaxis("ph1", IR_ph1_cyc / 4)
-    vd_data.setaxis("ph2", IR_ph2_cyc / 4)
-    nodename = vd_data.name()
-    with h5py.File(
-        os.path.normpath(os.path.join(target_directory, f"{filename_out}")
-    )) as fp:
-        if nodename in fp.keys():
-            print("this nodename already exists, so I will call it temp")
-            vd_data.name("temp_noPower")
-            nodename = "temp_noPower"
-            vd_data.hdf5_write(f"{filename_out}",directory=target_directory)
-            input(f"I had problems writing to the correct file {filename_out} so I'm going to try to save this node as temp_noPower")
-        else:
-            vd_data.hdf5_write(f"{filename_out}",directory = target_directory)    
-    logger.debug("\n*** FILE SAVED ***\n")
-    logger.debug(strm("Name of saved data", vd_data.name()))
-    #}}}
     for j, this_dB in enumerate(T1_powers_dB):
-        if j == 0:
-            retval = p.dip_lock(
-                parser_dict['uw_dip_center_GHz'] - parser_dict['uw_dip_width_GHz'] / 2,
-                parser_dict['uw_dip_center_GHz'] + parser_dict['uw_dip_width_GHz'] / 2,
-            )
         p.set_power(this_dB)
         for k in range(10):
             time.sleep(0.5)
@@ -382,20 +379,27 @@ with power_control() as p:
         time.sleep(5)
         meter_power = p.get_power_setting()
         ini_time = time.time()
-        vd_data = run_IR(
-            nPoints=nPoints,
-            nEchoes=parser_dict['nEchoes'],
-            vd_list_us=vd_list_us,
-            nScans=parser_dict['nScans'],
-            adcOffset=parser_dict['adc_offset'],
-            carrierFreq_MHz=parser_dict['carrierFreq_MHz'],
-            p90_us=parser_dict['p90_us'],
-            tau_us=parser_dict['tau_us'],
-            repetition=parser_dict['FIR_rep'],
-            output_name= filename,
-            SW_kHz=parser_dict['SW_kHz'],
-            ret_data=None,
-        )
+        vd_data = None
+        for vd_idx, vd in enumerate(vd_list_us):
+            vd_data = run_IR(
+                nPoints=nPoints,
+                nEchoes=parser_dict["nEchoes"],
+                indirect_idx=vd_idx,
+                indirect_len=len(vd_list_us),
+                vd=vd,
+                nScans=parser_dict["nScans"],
+                adcOffset=parser_dict["adc_offset"],
+                carrierFreq_MHz=parser_dict["carrierFreq_MHz"],
+                p90_us=parser_dict["p90_us"],
+                tau_us=parser_dict["tau_us"],
+                repetition_us=FIR_rep,
+                ph1_cyc=IR_ph1_cyc,
+                ph2_cyc=IR_ph2_cyc,
+                SW_kHz=parser_dict["SW_kHz"],
+                ret_data=vd_data,
+            )
+        vd_data.rename("indirect", "vd")
+        vd_data.setaxis("vd", vd_list_us * 1e-6).set_units("vd", "s")
         vd_data.set_prop("start_time", ini_time)
         vd_data.set_prop("stop_time", time.time())
         vd_data.set_prop("acq_params", parser_dict.asdict())
