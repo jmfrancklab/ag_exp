@@ -27,10 +27,10 @@ input("Look ok?")
 powers = 1e-3*10**(dB_settings/10.)
 
 date = datetime.now().strftime('%y%m%d')
-output_name = 'RM7_H2O'
-node_name = 'enhancement_3'
+output_name = 'RM7_D2O'
+node_name = 'enhancement_1'
 adcOffset = 32
-carrierFreq_MHz = 14.819111
+carrierFreq_MHz = 14.808522
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 4

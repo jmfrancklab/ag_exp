@@ -75,6 +75,7 @@ with power_control() as p:
         config_dict["uw_dip_center_GHz"] - config_dict["uw_dip_width_GHz"] / 2,
         config_dict["uw_dip_center_GHz"] + config_dict["uw_dip_width_GHz"] / 2,
     )
+    mw_freqs.append(dip_f)
     dip_f /= 1e9
     p.set_power(dB_settings)
     for k in range(10):
@@ -129,6 +130,7 @@ with power_control() as p:
                 ret_data=sweep_data,
             )
 sweep_data.set_prop("acq_params", config_dict.asdict())
+sweep_data.set_prop('mw_freqs', mw_freqs)
 # }}}
 # {{{chunk and save data
 if phase_cycling:

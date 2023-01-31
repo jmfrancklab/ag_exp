@@ -28,14 +28,14 @@ mw_freqs = []
 # as this is generally what the SpinCore takes
 # note that acq_time is always milliseconds
 #}}}
-#field_axis = psp.r_[3480:3525:1]
-field_axis = psp.r_[3485:3497:1]
+field_axis = psp.r_[3480:3525:1]
+#field_axis = psp.r_[3485:3497:1]
 logging.info("Here is my field axis:",field_axis)
 powers = r_[2.51]
 min_dBm_step = 0.5
-output_name = 'RM_1'
+output_name = 'RM_D2O_1'
 adcOffset = 32
-gamma_eff = (14.816656/3492.0)
+gamma_eff = (14.82/3485.75)
 nScans = 1
 p90 = 4.51
 repetition = 1.0e6
@@ -45,9 +45,9 @@ SW_kHz = 24
 acq_ms = 80.
 tau_us = 2500.
 ph1_cyc = r_[0,1,2,3]
-uw_dip_center_GHz = 9.820617
+uw_dip_center_GHz = 9.820475
 uw_dip_width_GHz = 0.04
-date = '221208'#datetime.now().strftime('%y%m%d')
+date = '221212'#datetime.now().strftime('%y%m%d')
 #}}}
 
 #{{{ Parameters for Bridge12

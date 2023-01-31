@@ -44,7 +44,7 @@ def verifyParams():
 #}}}
 
 output_name = 'RM'
-node_name = 'echo_15'
+node_name = 'echo_1'
 adcOffset = 32
 
 user_sets_Freq = True
@@ -65,7 +65,7 @@ if not user_sets_Field:
 #}}}
 #{{{ set frequency here
 if user_sets_Freq:
-    carrierFreq_MHz = 14.819111
+    carrierFreq_MHz = 14.817476
     print("My frequency in MHz is",carrierFreq_MHz)
 #}}}
 #{{{ let computer set frequency

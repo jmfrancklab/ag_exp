@@ -37,10 +37,10 @@ def verifyParams():
 #}}}
 date = datetime.now().strftime('%y%m%d')
 clock_correction = 0
-output_name = 'RM7_H2O'
-node_name = 'IR_noPower_1'
+output_name = 'RM7_D2O'
+node_name = 'IR_noPower_3'
 adcOffset = 32
-carrierFreq_MHz = 14.816656
+carrierFreq_MHz = 14.817476
 tx_phases = r_[0.0,90.0,180.0,270.0]
 amplitude = 1.0
 nScans = 8
