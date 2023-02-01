@@ -147,7 +147,7 @@ for vd_idx, vd in enumerate(vd_list_us):
         indirect_idx=vd_idx,
         indirect_len=len(vd_list_us),
         vd=vd,
-        nScans=4,#parser_dict["thermal_nScans"],
+        nScans=parser_dict["nScans"],
         adcOffset=parser_dict["adc_offset"],
         carrierFreq_MHz=parser_dict["carrierFreq_MHz"],
         p90_us=parser_dict["p90_us"],
@@ -168,7 +168,7 @@ vd_data.name("FIR_noPower")
 vd_data.chunk("t", ["ph2", "ph1", "t2"], [len(IR_ph1_cyc), len(IR_ph2_cyc), -1])
 vd_data.setaxis("ph1", IR_ph1_cyc / 4)
 vd_data.setaxis("ph2", IR_ph2_cyc / 4)
-vd_data.setaxis("nScans", r_[0 : 4])#parser_dict["thermal_nScans"]])
+vd_data.setaxis("nScans", r_[0 : parser_dict["nScans"]])
 nodename = vd_data.name()
 with h5py.File(
     os.path.normpath(os.path.join(target_directory, f"{filename_out}"))
