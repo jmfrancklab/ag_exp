@@ -10,13 +10,13 @@ from SpinCore_pp.ppg import run_spin_echo
 import logging
 fl = figlist_var()
 #{{{Parameters that change for new samples
-output_name = 'TEMPOL_cap_probe_nutation'
-adcOffset = 26
-carrierFreq_MHz = 14.903907
-nScans = 1
+output_name = 'bal_probe_nutation_2'
+adcOffset = 31
+carrierFreq_MHz = 14.893329
+nScans = 4
 nEchoes = 1
-repetition = 0.5e6
-p90_range = linspace(1.,15.,10,endpoint=False)
+repetition = 1.0e6
+p90_range = linspace(7.,11.,15,endpoint=False)
 ph1_cyc = r_[0,2]
 ph2_cyc = r_[0,2]
 SW_kHz = 3.9 #24.0 originally
@@ -48,10 +48,9 @@ nutation_data = run_spin_echo(
         nPoints = nPoints,
         nEchoes=nEchoes, 
         p90_us = p90_range[0], 
-        repetition = repetition,
+        repetition_us = repetition,
         tau_us = tau, 
         SW_kHz = SW_kHz, 
-        output_name = output_name,
         indirect_fields = None, 
         ph1_cyc = ph1_cyc, 
         ph2_cyc = ph2_cyc,
@@ -68,10 +67,9 @@ for index,p90 in enumerate(p90_range[1:]):
             nPoints = nPoints,
             nEchoes=nEchoes, 
             p90_us = p90, 
-            repetition = repetition,
+            repetition_us = repetition,
             tau_us = tau, 
             SW_kHz = SW_kHz, 
-            output_name = output_name,
             ph1_cyc = ph1_cyc, 
             ph2_cyc = ph2_cyc,
             ret_data = nutation_data)
