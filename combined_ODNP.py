@@ -54,7 +54,7 @@ dB_settings = gen_powerlist(
 T1_powers_dB = gen_powerlist(
     parser_dict['max_power'], parser_dict['num_T1s'], three_down=False
 )
-T1_node_names = ["FIR_%ddBm" % j for j in T1_powers_dB]
+T1_node_names = ["FIR_%0.1fdBm" % j for j in T1_powers_dB]
 logger.info("dB_settings", dB_settings)
 logger.info("correspond to powers in Watts", 10 ** (dB_settings / 10.0 - 3))
 logger.info("T1_powers_dB", T1_powers_dB)
