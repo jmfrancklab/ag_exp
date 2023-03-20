@@ -29,6 +29,22 @@ config_dict['date'] = date
 config_dict['echo_counter'] += 1
 filename = f"{config_dict['date']}_{config_dict['chemical']}_{config_dict['type']}"
 #}}}
+#{{{let computer set field
+print("I'm assuming that you've tuned your probe to",
+        config_dict['carrierFreq_MHz'],
+        "since that's what's in your .ini file",
+        )
+Field = config_dict['carrierFreq_MHz']/config_dict['gamma_eff_MHz_G']
+print(
+        "Based on that, and the gamma_eff_MHz_G you have in your .ini file, I'm setting the field to %f"
+        %Field
+        )
+with xepr() as x:
+    assert Field < 3700, "are you crazy??? field is too high!"
+    assert Field > 3300, "are you crazy?? field is too low!"
+    Field = x.set_field(Field)
+    print("field set to ",Field)
+#}}}
 #{{{set phase cycling
 phase_cycling = True
 if phase_cycling:
@@ -71,6 +87,25 @@ if phase_cycling:
     echo_data.reorder(['ph1','nScans','t2'])
     fl.next('image')
     fl.image(echo_data.C.mean('nScans'))
+    echo_data.ft('t2',shift=True)
+    fl.next('image - ft')
+    fl.image(echo_data.C.mean('nScans'))
+    fl.next('image - ft, coherence')
+    echo_data.ft(['ph1'])
+    fl.image(echo_data.C.mean('nScans'))
+    fl.next('data plot')
+    data_slice = echo_data['ph1',1].C.mean('nScans')
+    fl.plot(data_slice, alpha=0.5)
+    fl.plot(data_slice.imag, alpha=0.5)
+    fl.plot(abs(data_slice), color='k', alpha=0.5)
+else:
+    fl.next('raw data')
+    fl.plot(echo_data)
+    echo_data.ft('t',shift=True)
+    fl.next('ft')
+    fl.plot(echo_data.real)
+    fl.plot(echo_data.imag)
+    fl.plot(abs(echo_data),color='k',alpha=0.5)
 #}}}    
 target_directory = getDATADIR(exp_type='ODNP_NMR_comp/Echoes')
 filename_out = filename + '.h5'
@@ -97,4 +132,10 @@ else:
 print("\n*** FILE SAVED IN TARGET DIRECTORY ***\n")
 print(("Name of saved data",echo_data.name()))
 print(("Shape of saved data",ndshape(echo_data)))
+config_dict.write()
+print("Your *current* γ_eff (MHz/G) should be ",
+        config_dict['gamma_eff_MHz_G'],
+        ' - (Δν*1e-6/',Field,
+        '), where Δν is your resonance offset')
+print("So, look at the resonance offset where your signal shows up, and enter the new value for gamma_eff_MHz_G into your .ini file, and run me again!")
 fl.show()
